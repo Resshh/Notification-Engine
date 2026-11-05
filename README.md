@@ -46,11 +46,12 @@ runQuery(queryId, params) // returns:
 ## Branches
 
 ```
-main      <- stable, demo-ready
-develop   <- both batches merge here
+main      <- stable, demo-ready (merge via Pull Request only)
+batch1    <- Batch 1 lead merges team work here
+batch2    <- Batch 2 lead merges team work here
 batch1/*  <- Batch 1 feature branches -> PR into batch1
 batch2/*  <- Batch 2 feature branches -> PR into batch2
 ```
 
-Never push directly to `main` or `develop` - open a Pull Request.
+Never push directly to `main` - open a Pull Request.
 
