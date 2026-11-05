@@ -1,25 +1,35 @@
-﻿// Load environment variables
-require("dotenv").config();
+﻿const express = require("express");
 
-const express = require("express");
+// ======================================
+// Batch 2 Routes
+// ======================================
 
-// Batch 2 - Database Connection Routes
 const connectionRoutes = require("./routes/connectionRoutes");
+
+// ======================================
+// Express Application
+// ======================================
 
 const app = express();
 
-// Middleware
+// ======================================
+// Global Middleware
+// ======================================
+
 app.use(express.json());
 
+// ======================================
 // Health Check API
+// ======================================
+
 app.get("/api/health", (req, res) => {
-  res.status(200).json({
+  return res.status(200).json({
     status: "ok"
   });
 });
 
 // ======================================
-// Register Application Routes
+// Application Routes
 // ======================================
 
 // Batch 1 - Notification Engine
@@ -29,11 +39,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/connections", connectionRoutes);
 
 // ======================================
-// Start Server
+// Export Express Application
 // ======================================
 
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+module.exports = app;
