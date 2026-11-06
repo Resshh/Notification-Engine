@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.js'
-import './Recipients.css'
+import './RecipientList.css'
 
 const emptyForm = {
   name: '',
@@ -9,9 +10,23 @@ const emptyForm = {
   bcc: [],
 }
 
+const emptyEmailInputs = {
+  emails: '',
+  cc: '',
+  bcc: '',
+}
+
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-export default function Recipients() {
+// Split multiple emails entered with commas, semicolons or new lines.
+function parseEmails(value) {
+  return value
+    .split(/[,\n;]+/)
+    .map((email) => email.trim())
+    .filter(Boolean)
+}
+
+export default function RecipientList() {
   const [lists, setLists] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -21,19 +36,14 @@ export default function Recipients() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
-  const [emailInputs, setEmailInputs] = useState({
-    emails: '',
-    cc: '',
-    bcc: '',
-  })
+  const [emailInputs, setEmailInputs] = useState(emptyEmailInputs)
 
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-  async function loadLists() {
-    setLoading(true)
-    setError('')
-
+  // Load recipient lists from the backend.
+  const loadLists = useCallback(async (isActive = () => true) => {
     try {
       const data = await api('/recipient-lists')
 
@@ -41,32 +51,62 @@ export default function Recipients() {
         throw new Error('Invalid recipient-list response.')
       }
 
-      setLists(data.lists)
+      if (isActive()) {
+        setLists(data.lists)
+        setError('')
+      }
     } catch (err) {
-      setError(err.message || 'Unable to load recipient lists.')
+      if (isActive()) {
+        setError(err.message || 'Unable to load recipient lists.')
+      }
     } finally {
-      setLoading(false)
+      if (isActive()) {
+        setLoading(false)
+      }
     }
-  }
-
-  useEffect(() => {
-    loadLists()
   }, [])
 
+useEffect(() => {
+  let active = true
+
+  api('/recipient-lists')
+    .then((data) => {
+      if (!Array.isArray(data.lists)) {
+        throw new Error('Invalid recipient-list response.')
+      }
+
+      if (active) {
+        setLists(data.lists)
+        setError('')
+      }
+    })
+    .catch((err) => {
+      if (active) {
+        setError(err.message || 'Unable to load recipient lists.')
+      }
+    })
+    .finally(() => {
+      if (active) {
+        setLoading(false)
+      }
+    })
+
+  return () => {
+    active = false
+  }
+}, [])
+
+  // Open the form for creating a new list.
   function openCreateForm() {
     setEditingId(null)
-    setForm({
-      ...emptyForm,
-      emails: [],
-      cc: [],
-      bcc: [],
-    })
-    setEmailInputs({ emails: '', cc: '', bcc: '' })
+    setForm({ ...emptyForm })
+    setEmailInputs({ ...emptyEmailInputs })
     setError('')
     setMessage('')
     setFormOpen(true)
   }
 
+  // Open the form with the selected list's existing data.
   function openEditForm(list) {
     setEditingId(list._id)
 
@@ -77,17 +117,19 @@ export default function Recipients() {
       bcc: [...(list.bcc || [])],
     })
 
-    setEmailInputs({ emails: '', cc: '', bcc: '' })
+    setEmailInputs({ ...emptyEmailInputs })
     setError('')
     setMessage('')
     setFormOpen(true)
   }
 
+  // Close and reset the form.
   function closeForm() {
     setFormOpen(false)
     setEditingId(null)
-    setForm(emptyForm)
-    setEmailInputs({ emails: '', cc: '', bcc: '' })
+    setForm({ ...emptyForm })
+    setEmailInputs({ ...emptyEmailInputs })
+    setError('')
   }
 
   function updateName(value) {
@@ -104,36 +146,42 @@ export default function Recipients() {
     }))
   }
 
+  // Add email addresses to To, CC or BCC.
   function addEmail(field) {
     const value = emailInputs[field].trim()
 
     if (!value) return
 
-    const addresses = value
-      .split(/[,\n;]+/)
-      .map((email) => email.trim())
-      .filter(Boolean)
+    const addresses = parseEmails(value)
 
-    const invalid = addresses.find((email) => !emailPattern.test(email))
+    const invalid = addresses.find(
+      (email) => !emailPattern[0].test(email)
+    )
 
     if (invalid) {
       setError(`"${invalid}" is not a valid email address.`)
       return
     }
 
-    const existing = [
+    // Check existing addresses across all three fields.
+    const existing = new Set([
       ...form.emails,
       ...form.cc,
       ...form.bcc,
-    ].map((email) => email.toLowerCase())
+    ].map((email) => email.trim().toLowerCase()))
 
-    const duplicate = addresses.find((email) =>
-      existing.includes(email.toLowerCase())
-    )
+    // Also check duplicates within the newly entered addresses.
+    const seen = new Set()
 
-    if (duplicate) {
-      setError(`"${duplicate}" has already been added.`)
-      return
+    for (const email of addresses) {
+      const normalized = email.toLowerCase()
+
+      if (existing.has(normalized) || seen.has(normalized)) {
+        setError(`"${email}" has already been added.`)
+        return
+      }
+
+      seen.add(normalized)
     }
 
     setError('')
@@ -163,41 +211,47 @@ export default function Recipients() {
     }
   }
 
-  function validateForm() {
-    if (!form.name.trim()) {
+  // Validate the complete form before sending it to the backend.
+  function validateForm(data, currentEditingId) {
+    if (!data.name.trim()) {
       setError('Recipient list name is required.')
       return false
     }
 
-    if (form.emails.length === 0) {
+    if (data.emails.length === 0) {
       setError('Please add at least one To email address.')
       return false
     }
 
     const allEmails = [
-      ...form.emails,
-      ...form.cc,
-      ...form.bcc,
+      ...data.emails,
+      ...data.cc,
+      ...data.bcc,
     ]
 
     for (const email of allEmails) {
-      if (!emailPattern.test(email)) {
+      if (!emailPattern.test(email.trim())) {
         setError(`Invalid email address: ${email}`)
         return false
       }
     }
 
-    const normalized = allEmails.map((email) => email.toLowerCase())
+    // Email addresses must be unique across To, CC and BCC.
+    const normalized = allEmails.map(
+      (email) => email.trim().toLowerCase()
+    )
 
     if (new Set(normalized).size !== normalized.length) {
       setError('An email address cannot appear more than once in the list.')
       return false
     }
 
+    // Check for an existing list with the same name.
     const duplicateName = lists.find(
       (list) =>
-        list.name.trim().toLowerCase() === form.name.trim().toLowerCase() &&
-        list._id !== editingId
+        list.name.trim().toLowerCase() ===
+          data.name.trim().toLowerCase() &&
+        list._id !== currentEditingId
     )
 
     if (duplicateName) {
@@ -208,86 +262,60 @@ export default function Recipients() {
     return true
   }
 
+  // Create a new recipient list or update an existing one.
   async function saveList(event) {
     event.preventDefault()
+
+    if (saving) return
 
     setError('')
     setMessage('')
 
-    // Include any email still present in the input fields.
-    const updatedForm = { ...form }
+    // Copy the form so we can include emails still in the input boxes.
+    const updatedForm = {
+      ...form,
+      emails: [...form.emails],
+      cc: [...form.cc],
+      bcc: [...form.bcc],
+    }
 
     for (const field of ['emails', 'cc', 'bcc']) {
       const value = emailInputs[field].trim()
 
-      if (value) {
-        const addresses = value
-          .split(/[,\n;]+/)
-          .map((email) => email.trim())
-          .filter(Boolean)
+      if (!value) continue
 
-        const invalid = addresses.find(
-          (email) => !emailPattern.test(email)
-        )
+      const addresses = parseEmails(value)
 
-        if (invalid) {
-          setError(`"${invalid}" is not a valid email address.`)
-          return
-        }
+      const invalid = addresses.find(
+        (email) => !emailPattern.test(email)
+      )
 
-        updatedForm[field] = [...updatedForm[field], ...addresses]
-      }
-    }
-
-    const allEmails = [
-      ...updatedForm.emails,
-      ...updatedForm.cc,
-      ...updatedForm.bcc,
-    ].map((email) => email.toLowerCase())
-
-    if (new Set(allEmails).size !== allEmails.length) {
-      setError('An email address cannot appear more than once in the list.')
-      return
-    }
-
-    if (!updatedForm.name.trim()) {
-      setError('Recipient list name is required.')
-      return
-    }
-
-    if (updatedForm.emails.length === 0) {
-      setError('Please add at least one To email address.')
-      return
-    }
-
-    for (const email of allEmails) {
-      if (!emailPattern.test(email)) {
-        setError(`Invalid email address: ${email}`)
+      if (invalid) {
+        setError(`"${invalid}" is not a valid email address.`)
         return
       }
+
+      updatedForm[field] = [
+        ...updatedForm[field],
+        ...addresses,
+      ]
     }
 
-    const duplicateName = lists.find(
-      (list) =>
-        list.name.trim().toLowerCase() === updatedForm.name.trim().toLowerCase() &&
-        list._id !== editingId
-    )
-
-    if (duplicateName) {
-      setError('A recipient list with this name already exists.')
+    // Validate all entered data, including pending email inputs.
+    if (!validateForm(updatedForm, editingId)) {
       return
+    }
+
+    const payload = {
+      name: updatedForm.name.trim(),
+      emails: updatedForm.emails,
+      cc: updatedForm.cc,
+      bcc: updatedForm.bcc,
     }
 
     setSaving(true)
 
     try {
-      const payload = {
-        name: updatedForm.name.trim(),
-        emails: updatedForm.emails,
-        cc: updatedForm.cc,
-        bcc: updatedForm.bcc,
-      }
-
       if (editingId) {
         await api(`/recipient-lists/${editingId}`, {
           method: 'PUT',
@@ -313,11 +341,13 @@ export default function Recipients() {
     }
   }
 
+  // Delete the selected recipient list.
   async function confirmDelete() {
-    if (!deleteTarget) return
+    if (!deleteTarget || deleting) return
 
     setError('')
     setMessage('')
+    setDeleting(true)
 
     try {
       await api(`/recipient-lists/${deleteTarget._id}`, {
@@ -330,16 +360,20 @@ export default function Recipients() {
     } catch (err) {
       setError(err.message || 'Unable to delete recipient list.')
       setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
     }
   }
 
+  // Search recipient lists by name.
   const filteredLists = lists.filter((list) =>
-    list.name.toLowerCase().includes(search.trim().toLowerCase())
+    (list.name || '').toLowerCase().includes(search.trim().toLowerCase())
   )
 
   return (
     <section className="recipients-page">
 
+      {/* Page heading */}
       <div className="recipients-heading">
         <div>
           <p className="recipients-eyebrow">EMAIL AUTOMATION</p>
@@ -358,24 +392,33 @@ export default function Recipients() {
         </button>
       </div>
 
+      {/* Success message */}
       {message && (
         <div className="recipients-message recipients-success" role="status">
           <span>✓</span> {message}
-          <button type="button" onClick={() => setMessage('')}>×</button>
+          <button type="button" onClick={() => setMessage('')}>
+            ×
+          </button>
         </div>
       )}
 
+      {/* Error message outside the form */}
       {error && !formOpen && (
         <div className="recipients-message recipients-error" role="alert">
           {error}
-          <button type="button" onClick={() => setError('')}>×</button>
+          <button type="button" onClick={() => setError('')}>
+            ×
+          </button>
         </div>
       )}
 
+      {/* Search toolbar */}
       <div className="recipients-toolbar">
         <div>
           <h3>All Recipient Lists</h3>
-          <p>{lists.length} {lists.length === 1 ? 'list' : 'lists'} available</p>
+          <p>
+            {lists.length} {lists.length === 1 ? 'list' : 'lists'} available
+          </p>
         </div>
 
         <div className="recipients-search">
@@ -390,6 +433,7 @@ export default function Recipients() {
         </div>
       </div>
 
+      {/* Recipient lists table or empty state */}
       {loading ? (
         <div className="recipients-empty">
           Loading recipient lists...
@@ -397,12 +441,17 @@ export default function Recipients() {
       ) : filteredLists.length === 0 ? (
         <div className="recipients-empty">
           <div className="recipients-empty-icon">✉</div>
-          <h3>{search ? 'No matching lists found' : 'No recipient lists yet'}</h3>
+
+          <h3>
+            {search ? 'No matching lists found' : 'No recipient lists yet'}
+          </h3>
+
           <p>
             {search
               ? 'Try searching with a different list name.'
               : 'Create your first recipient list to get started.'}
           </p>
+
           {!search && (
             <button
               type="button"
@@ -423,7 +472,7 @@ export default function Recipients() {
                   <th>TO EMAILS</th>
                   <th>CC EMAILS</th>
                   <th>BCC EMAILS</th>
-                  <th className="recipients-actions-heading">ACTIONS</th>
+                  <th>ACTIONS</th>
                 </tr>
               </thead>
 
@@ -476,11 +525,14 @@ export default function Recipients() {
         </div>
       )}
 
+      {/* Create / Edit modal */}
       {formOpen && (
         <div
           className="recipients-modal-overlay"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeForm()
+            if (event.target === event.currentTarget && !saving) {
+              closeForm()
+            }
           }}
         >
           <div
@@ -494,9 +546,11 @@ export default function Recipients() {
                 <p className="recipients-eyebrow">
                   RECIPIENT MANAGEMENT
                 </p>
+
                 <h3 id="recipient-form-title">
                   {editingId ? 'Edit Recipient List' : 'Create Recipient List'}
                 </h3>
+
                 <p>
                   Add the email addresses that should receive notifications.
                 </p>
@@ -507,6 +561,7 @@ export default function Recipients() {
                 className="recipients-close-btn"
                 onClick={closeForm}
                 aria-label="Close form"
+                disabled={saving}
               >
                 ×
               </button>
@@ -520,8 +575,12 @@ export default function Recipients() {
 
             <form onSubmit={saveList}>
               <div className="recipients-form-body">
+
                 <label className="recipients-field">
-                  <span>List Name <b>*</b></span>
+                  <span>
+                    List Name <b>*</b>
+                  </span>
+
                   <input
                     type="text"
                     placeholder="e.g. Finance Team"
@@ -565,6 +624,7 @@ export default function Recipients() {
                   onRemove={removeEmail}
                   onKeyDown={handleEmailKeyDown}
                 />
+
               </div>
 
               <div className="recipients-modal-footer">
@@ -594,11 +654,14 @@ export default function Recipients() {
         </div>
       )}
 
+      {/* Delete confirmation modal */}
       {deleteTarget && (
         <div
           className="recipients-modal-overlay"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setDeleteTarget(null)
+            if (event.target === event.currentTarget && !deleting) {
+              setDeleteTarget(null)
+            }
           }}
         >
           <div
@@ -612,8 +675,8 @@ export default function Recipients() {
             <h3 id="delete-title">Delete Recipient List?</h3>
 
             <p>
-              Are you sure you want to delete
-              {' '}<strong>{deleteTarget.name}</strong>?
+              Are you sure you want to delete{' '}
+              <strong>{deleteTarget.name}</strong>?
               This action cannot be undone.
             </p>
 
@@ -622,6 +685,7 @@ export default function Recipients() {
                 type="button"
                 className="recipients-cancel-btn"
                 onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
               >
                 Cancel
               </button>
@@ -630,8 +694,9 @@ export default function Recipients() {
                 type="button"
                 className="recipients-confirm-delete"
                 onClick={confirmDelete}
+                disabled={deleting}
               >
-                Delete List
+                {deleting ? 'Deleting...' : 'Delete List'}
               </button>
             </div>
           </div>
@@ -642,6 +707,7 @@ export default function Recipients() {
   )
 }
 
+// Displays email addresses in the table.
 function EmailSummary({ emails }) {
   if (!emails.length) {
     return <span className="recipients-no-email">—</span>
@@ -657,7 +723,10 @@ function EmailSummary({ emails }) {
         ))
       ) : (
         <>
-          <span className="recipients-email-chip">{emails[0]}</span>
+          <span className="recipients-email-chip">
+            {emails[0]}
+          </span>
+
           <span className="recipients-more-chip">
             +{emails.length - 1} more
           </span>
@@ -667,6 +736,7 @@ function EmailSummary({ emails }) {
   )
 }
 
+// Reusable input component for To, CC and BCC.
 function EmailField({
   label,
   required = false,
@@ -706,8 +776,12 @@ function EmailField({
 
       <div className="recipients-email-chips">
         {values.map((email, index) => (
-          <span className="recipients-form-chip" key={`${email}-${index}`}>
+          <span
+            className="recipients-form-chip"
+            key={`${email}-${index}`}
+          >
             {email}
+
             <button
               type="button"
               onClick={() => onRemove(field, index)}
