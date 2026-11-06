@@ -1,0 +1,21 @@
+﻿InvoiceNo,CustomerCode,CustomerName,Email,DueDate,Amount,Paid
+INV-1001,C001,Alpha Traders,accounts@alphatraders.com,2026-10-10,85000,false
+INV-1002,C002,Beta Supplies,finance@betasupplies.com,2026-10-05,42500,false
+INV-1003,C003,Gamma Exports,billing@gammaexports.com,2026-09-28,1200000,false
+INV-1004,C004,Delta Solutions,ap@deltasolutions.com,2026-10-15,67000,false
+INV-1005,C005,Epsilon Corp,accounts@epsiloncorp.com,2026-09-20,310000,false
+INV-1006,C006,Zeta Industries,finance@zetaindustries.com,2026-10-20,55000,false
+INV-1007,C007,Eta Merchants,billing@etamerchants.com,2026-10-25,92000,false
+INV-1008,C008,Theta Retail,accounts@thetaretail.com,2026-11-10,38000,false
+INV-1009,C009,Iota Logistics,ap@iotalogistics.com,2026-11-15,145000,false
+INV-1010,C010,Kappa Tech,finance@kappatech.com,2026-11-20,275000,false
+INV-1011,C001,Alpha Traders,accounts@alphatraders.com,2026-10-01,60000,false
+INV-1012,C003,Gamma Exports,billing@gammaexports.com,2026-11-25,88000,false
+INV-1013,C011,Lambda Goods,accounts@lambdagoods.com,2026-10-18,33000,false
+INV-1014,C012,Mu Trading Co,finance@mutrading.com,2026-11-30,500000,false
+INV-1015,C013,Nu Enterprises,ap@nuenterprise.com,2026-10-08,72000,false
+INV-1016,C014,Xi Wholesale,billing@xiwholesale.com,2026-12-05,195000,false
+INV-1017,C015,Omicron Parts,accounts@omicronparts.com,2026-10-12,48000,false
+INV-1018,C016,Pi Components,finance@picomponents.com,2026-12-10,320000,false
+INV-1019,C017,Rho Distributors,ap@rhodist.com,2026-10-22,54000,false
+INV-1020,C018,Sigma Supplies,billing@sigmasupplies.com,2026-12-15,410000,false

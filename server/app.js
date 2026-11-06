@@ -1,39 +1,42 @@
-﻿// Load environment variables
-require("dotenv").config();
-
 const express = require("express");
+const cors = require("cors");
 
-// Batch 2 - Database Connection Routes
+const queryRoutes = require("./routes/queryRoutes");
 const connectionRoutes = require("./routes/connectionRoutes");
+const reportRoutes = require("./routes/reportRoutes");
+
+const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 
-// Middleware
+// Standard middleware
+app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Health Check API
+// Root endpoint
+app.get("/", (req, res) => {
+  res.send("Backend running");
+});
+
+// Health check endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({
-    status: "ok"
+    success: true,
+    message: "Notification Engine API is running"
   });
 });
 
-// ======================================
-// Register Application Routes
-// ======================================
+// Query Management API - Rohit's module
+app.use("/api/queries", queryRoutes);
 
-// Batch 1 - Notification Engine
-// Batch 1 routes will be registered here.
-
-// Batch 2 - Data Connectors
+// Database Connection Management API - Minhaj's module
 app.use("/api/connections", connectionRoutes);
 
-// ======================================
-// Start Server
-// ======================================
+// Report Generation API - Swarnalakshmi's module (Story 6.3, 6.4, 6.5)
+app.use("/api/reports", reportRoutes);
 
-const PORT = process.env.PORT || 5000;
+// Central error handler - must be registered last
+app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+module.exports = app;
