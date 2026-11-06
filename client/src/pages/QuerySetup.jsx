@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import api, { previewSavedQuery, previewTransientQuery } from '../api/previewApi';
+import api, { previewSavedQuery } from '../api/previewApi';
 import QueryPreview from '../components/QueryPreview';
 
 export default function QuerySetup() {
@@ -18,59 +18,12 @@ export default function QuerySetup() {
 
   const [rowLimit, setRowLimit] = useState(1000);
 
-  // Test Query Parameter state (Ref: Story 5.2, Sub-task 143, Figure 3)
-  const [paramName, setParamName] = useState('@asOfDate');
-  const [paramValue, setParamValue] = useState('2026-11-01');
-
-  // Field Mapping state (Ref: Story 5.5, Sub-task 166)
-  const [columnMappings, setColumnMappings] = useState([
-    { source: 'DocNum', common: 'InvoiceNo' },
-    { source: 'CardName', common: 'CustomerName' },
-    { source: 'DocTotal', common: 'Amount' }
-  ]);
-
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  // Field mapping handlers (Story 5.5)
-  function handleAddMappingRow() {
-    setColumnMappings([...columnMappings, { source: '', common: '' }]);
-  }
-
-  function handleRemoveMappingRow(index) {
-    if (columnMappings.length === 1) {
-      setColumnMappings([{ source: '', common: '' }]);
-    } else {
-      setColumnMappings(columnMappings.filter((_, i) => i !== index));
-    }
-  }
-
-  function handleMappingChange(index, field, value) {
-    const updated = [...columnMappings];
-    updated[index][field] = value;
-    setColumnMappings(updated);
-  }
-
-  function handleAutoFillMappings() {
-    if (!preview || !Array.isArray(preview.columns) || preview.columns.length === 0) {
-      return;
-    }
-    const existingSources = new Set(columnMappings.map((m) => m.source.trim()));
-    const newRows = [...columnMappings.filter((m) => m.source.trim())];
-
-    for (const col of preview.columns) {
-      if (!existingSources.has(col)) {
-        newRows.push({ source: col, common: col });
-        existingSources.add(col);
-      }
-    }
-
-    setColumnMappings(newRows.length > 0 ? newRows : [{ source: '', common: '' }]);
-  }
 
   // Validate the form before saving
   function validateForm() {
@@ -107,11 +60,6 @@ export default function QuerySetup() {
     try {
       validateForm();
 
-      // Filter out incomplete mapping entries (Story 5.5)
-      const validMappings = columnMappings
-        .map((m) => ({ source: m.source.trim(), common: m.common.trim() }))
-        .filter((m) => m.source && m.common);
-
       const queryData = {
         name: name.trim(),
         connectionId: connectionId.trim(),
@@ -120,7 +68,6 @@ export default function QuerySetup() {
         entity: kind === 'odata' ? entity : '',
         filter: kind === 'odata' ? filter.trim() : '',
         select: kind === 'odata' ? select.trim() : '',
-        columnMapping: validMappings,
         rowLimit: Number(rowLimit)
       };
 
@@ -154,7 +101,7 @@ export default function QuerySetup() {
     }
   }
 
-  // Test query and preview results (Story 5.2, Sub-tasks 142-145)
+  // Preview an already saved query
   async function testQuery() {
     setLoading(true);
     setError('');
@@ -162,39 +109,15 @@ export default function QuerySetup() {
     setPreview(null);
 
     try {
-      const runtimeParams = {};
-      if (paramName.trim()) {
-        runtimeParams[paramName.trim()] = paramValue.trim();
+      if (!queryId.trim()) {
+        throw new Error('Please save a query or enter an existing saved query ID.');
       }
 
-      // Filter out incomplete mapping entries (Story 5.5)
-      const validMappings = columnMappings
-        .map((m) => ({ source: m.source.trim(), common: m.common.trim() }))
-        .filter((m) => m.source && m.common);
-
-      let result;
-      if (queryId.trim()) {
-        // Test saved query by ID (Sub-task 142)
-        result = await previewSavedQuery(queryId.trim(), runtimeParams);
-      } else {
-        // Test transient query from editor inputs before saving
-        validateForm();
-        const transientQuery = {
-          name: name.trim() || 'Transient Test Query',
-          connectionId: connectionId.trim(),
-          kind,
-          queryText: kind === 'sql' ? queryText.trim() : '',
-          entity: kind === 'odata' ? entity : '',
-          filter: kind === 'odata' ? filter.trim() : '',
-          select: kind === 'odata' ? select.trim() : '',
-          columnMapping: validMappings,
-          rowLimit: Number(rowLimit) || 1000
-        };
-        result = await previewTransientQuery(transientQuery, runtimeParams);
-      }
+      const result = await previewSavedQuery(queryId.trim());
 
       setPreview(result);
-      setSuccess('Query executed successfully. Displaying up to the first 10 rows.');
+      setSuccess('Query executed successfully.');
+
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -343,27 +266,6 @@ export default function QuerySetup() {
             </label>
           )}
 
-          {/* Parameter Configuration (Ref: Story 5.2, Sub-task 143, Figure 3) */}
-          <label>
-            Parameter Name
-            <input
-              type="text"
-              value={paramName}
-              onChange={(e) => setParamName(e.target.value)}
-              placeholder="@asOfDate"
-            />
-          </label>
-
-          <label>
-            Test Parameter Value
-            <input
-              type="text"
-              value={paramValue}
-              onChange={(e) => setParamValue(e.target.value)}
-              placeholder="2026-11-01"
-            />
-          </label>
-
           {/* Row Limit */}
           <label>
             Row Limit
@@ -386,61 +288,6 @@ export default function QuerySetup() {
               }}
             />
           </label>
-
-          {/* Field Mapping Section (Story 5.5, Sub-task 166) */}
-          <div className="full-width mapping-card">
-            <div className="mapping-header">
-              <div>
-                <h4>Field Mapping (Source Column &rarr; Common Format Name)</h4>
-                <p>Map database/OData column names to standard common format names. Unmapped columns retain their original names.</p>
-              </div>
-              {preview?.columns?.length > 0 && (
-                <button
-                  type="button"
-                  className="btn-secondary-sm"
-                  onClick={handleAutoFillMappings}
-                >
-                  Auto-fill from Preview Columns
-                </button>
-              )}
-            </div>
-
-            {columnMappings.map((row, index) => (
-              <div key={index} className="mapping-row">
-                <input
-                  type="text"
-                  value={row.source}
-                  onChange={(e) => handleMappingChange(index, 'source', e.target.value)}
-                  placeholder="Source column (e.g. DocNum)"
-                />
-                <span className="mapping-arrow">&rarr;</span>
-                <input
-                  type="text"
-                  value={row.common}
-                  onChange={(e) => handleMappingChange(index, 'common', e.target.value)}
-                  placeholder="Common name (e.g. InvoiceNo)"
-                />
-                <button
-                  type="button"
-                  className="mapping-delete"
-                  onClick={() => handleRemoveMappingRow(index)}
-                  title="Remove mapping"
-                >
-                  &times;
-                </button>
-              </div>
-            ))}
-
-            <div className="mapping-btn-group">
-              <button
-                type="button"
-                className="btn-secondary-sm"
-                onClick={handleAddMappingRow}
-              >
-                + Add Column Mapping
-              </button>
-            </div>
-          </div>
 
         </div>
 
