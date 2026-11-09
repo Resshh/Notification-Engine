@@ -1,39 +1,39 @@
-﻿// Load environment variables
-require("dotenv").config();
-
 const express = require("express");
+const cors = require("cors");
 
-// Batch 2 - Database Connection Routes
+const queryRoutes = require("./routes/queryRoutes");
 const connectionRoutes = require("./routes/connectionRoutes");
+
+const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 
-// Middleware
+// Standard middleware
+app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Health Check API
+// Root endpoint
+app.get("/", (req, res) => {
+  res.send("Server running");
+});
+
+// Health check endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({
-    status: "ok"
+    success: true,
+    message: "Notification Engine API is running"
   });
 });
 
-// ======================================
-// Register Application Routes
-// ======================================
+// Query Management & Test Preview API (Story 5.1 & Story 5.2)
+app.use("/api/queries", queryRoutes);
+app.use("/api/query-preview", queryRoutes);
 
-// Batch 1 - Notification Engine
-// Batch 1 routes will be registered here.
-
-// Batch 2 - Data Connectors
+// Database Connection Management API
 app.use("/api/connections", connectionRoutes);
 
-// ======================================
-// Start Server
-// ======================================
+// Central error handler - must be registered last
+app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+module.exports = app;
