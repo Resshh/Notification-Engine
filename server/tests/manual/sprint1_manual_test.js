@@ -1,8 +1,7 @@
 /**
  * Manual Test Script — Sprint 1 (Stories 3.1, 6.1, 6.2, 6.3, 6.4)
- * Owner: Swarnalakshmi Perumal
  *
- * Run from backend/ folder:
+ * Run from server/ folder:
  *   node tests/manual/sprint1_manual_test.js
  *
  * What it tests:

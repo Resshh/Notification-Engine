@@ -1,5 +1,5 @@
 # Mock Data — Canonical Test Data Folder
-**Story 3.4 | Owner: Swarnalakshmi Perumal | Batch 2 — Data Connectors**
+**Story 3.4 | Batch 2 — Data Connectors**
 
 ---
 
@@ -74,7 +74,7 @@ mock-data/
 
 ## How Each Connector Loads This Data
 
-### SQL Server (Joice — Story 2.3)
+### SQL Server (Story 2.3)
 Load `demo/` or `large/` files into SQL Server test tables via `db/sqlserver/init.sql`.
 
 ```sql
@@ -83,7 +83,7 @@ Load `demo/` or `large/` files into SQL Server test tables via `db/sqlserver/ini
 docker-compose -f db/sqlserver/docker-compose.yml up
 ```
 
-### SAP HANA Mock (Swarnalakshmi — Story 3.1)
+### SAP HANA Mock (Story 3.1)
 The HANA mock engine loads from this folder at startup:
 
 ```js
@@ -91,7 +91,7 @@ const invoices = require('../../mock-data/demo/invoices.json');
 const salesSummary = require('../../mock-data/demo/salesSummary.json');
 ```
 
-### SAP Service Layer Mock (Akshay — Story 4.1)
+### SAP Service Layer Mock (Story 4.1)
 The mock Express server loads Invoices, PurchaseOrders and Items:
 
 ```js

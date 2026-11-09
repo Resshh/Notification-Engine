@@ -1,6 +1,6 @@
 /**
  * Unit Tests — buildReport (CSV + Excel)
- * Story 6.3 & 6.4 | Owner: Swarnalakshmi Perumal | Sprint 1 & 2
+ * Story 6.3 & 6.4 | Sprint 1 & 2
  * Ref: FR-19, sub-tasks #194, #199, #193, #198
  *
  * Tests:

@@ -1,5 +1,5 @@
 {
-  "name": "notifications-data-connectors-frontend",
+  "name": "notifications-data-connectors-client",
   "version": "1.0.0",
   "private": true,
   "type": "module",

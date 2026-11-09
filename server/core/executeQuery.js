@@ -1,6 +1,6 @@
 /**
  * executeQuery — Internal query execution engine
- * Story 6.2 | Owner: Swarnalakshmi Perumal | Sprint 1
+ * Story 6.2 | Sprint 1
  * Ref: FR-17, FR-18, sub-tasks #182, #184, #185, #186
  *
  * Orchestrates the full pipeline for one query execution:
@@ -11,7 +11,7 @@
  *   5. Run the query
  *   6. Format the result into the common shape
  *
- * Used internally by runQuery() and by the Test Query API (Rohit, Story 5.2).
+ * Used internally by runQuery() and by the Test Query API (Story 5.2).
  */
 
 const { decryptPassword }     = require("../security/crypto");
@@ -96,7 +96,7 @@ async function executeQuery(queryDoc, runtimeParams = {}, options = {}) {
       password: plainPassword,
     };
 
-    // ── Step 3: Validate the query (shared validator — Joice's module) ───────
+    // ── Step 3: Validate the query (shared validator) ───────
     const validation = validateQuerySafety({
       kind:        queryDoc.kind,
       queryText:   queryDoc.queryText,

@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Root endpoint
 app.get("/", (req, res) => {
-  res.send("Backend running");
+  res.send("Server running");
 });
 
 // Health check endpoint
@@ -26,10 +26,10 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Query Management API - Rohit's module
+// Query Management API
 app.use("/api/queries", queryRoutes);
 
-// Database Connection Management API - Minhaj's module
+// Database Connection Management API
 app.use("/api/connections", connectionRoutes);
 
 // Central error handler - must be registered last

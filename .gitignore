@@ -7,5 +7,6 @@ coverage/
 *.log
 
 # Generated report files - never commit these
+server/reports/output/
 backend/reports/output/
 reports/output/
