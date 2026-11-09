@@ -83,11 +83,51 @@ async function deleteQuery(req, res, next) {
   }
 }
 
+/**
+ * Handles testing/previewing a saved query.
+ * Route: POST /api/queries/:id/test or POST /api/queries/:id/preview
+ * Ref: Story 5.2, Sub-tasks 142, 143, FR-11.
+ */
+async function testQuery(req, res, next) {
+  try {
+    const { id } = req.params;
+    const runtimeParams = req.body.params !== undefined ? req.body.params : req.body;
+    const result = await queryService.testQuery(id, runtimeParams);
+    res.status(200).json({
+      ok: true,
+      data: result,
+      ...result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Handles previewing a transient/unsaved query definition.
+ * Route: POST /api/queries/test
+ */
+async function testQueryTransient(req, res, next) {
+  try {
+    const runtimeParams = req.body.params || {};
+    const result = await queryService.testQueryTransient(req.body, runtimeParams);
+    res.status(200).json({
+      ok: true,
+      data: result,
+      ...result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createQuery,
   getAllQueries,
   getQueryById,
   updateQuery,
-  deleteQuery
+  deleteQuery,
+  testQuery,
+  testQueryTransient
 };
 

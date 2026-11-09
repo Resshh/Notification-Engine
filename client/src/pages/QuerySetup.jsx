@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import api, { previewSavedQuery } from '../api/previewApi';
+import api, { previewSavedQuery, previewTransientQuery } from '../api/previewApi';
 import QueryPreview from '../components/QueryPreview';
 
 export default function QuerySetup() {
@@ -17,6 +17,10 @@ export default function QuerySetup() {
   const [queryText, setQueryText] = useState('');
 
   const [rowLimit, setRowLimit] = useState(1000);
+
+  // Test Query Parameter state (Ref: Story 5.2, Sub-task 143, Figure 3)
+  const [paramName, setParamName] = useState('@asOfDate');
+  const [paramValue, setParamValue] = useState('2026-11-01');
 
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -101,7 +105,7 @@ export default function QuerySetup() {
     }
   }
 
-  // Preview an already saved query
+  // Test query and preview results (Story 5.2, Sub-tasks 142-145)
   async function testQuery() {
     setLoading(true);
     setError('');
@@ -109,15 +113,33 @@ export default function QuerySetup() {
     setPreview(null);
 
     try {
-      if (!queryId.trim()) {
-        throw new Error('Please save a query or enter an existing saved query ID.');
+      const runtimeParams = {};
+      if (paramName.trim()) {
+        runtimeParams[paramName.trim()] = paramValue.trim();
       }
 
-      const result = await previewSavedQuery(queryId.trim());
+      let result;
+      if (queryId.trim()) {
+        // Test saved query by ID (Sub-task 142)
+        result = await previewSavedQuery(queryId.trim(), runtimeParams);
+      } else {
+        // Test transient query from editor inputs before saving
+        validateForm();
+        const transientQuery = {
+          name: name.trim() || 'Transient Test Query',
+          connectionId: connectionId.trim(),
+          kind,
+          queryText: kind === 'sql' ? queryText.trim() : '',
+          entity: kind === 'odata' ? entity : '',
+          filter: kind === 'odata' ? filter.trim() : '',
+          select: kind === 'odata' ? select.trim() : '',
+          rowLimit: Number(rowLimit) || 1000
+        };
+        result = await previewTransientQuery(transientQuery, runtimeParams);
+      }
 
       setPreview(result);
-      setSuccess('Query executed successfully.');
-
+      setSuccess('Query executed successfully. Displaying up to the first 10 rows.');
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -265,6 +287,27 @@ export default function QuerySetup() {
               />
             </label>
           )}
+
+          {/* Parameter Configuration (Ref: Story 5.2, Sub-task 143, Figure 3) */}
+          <label>
+            Parameter Name
+            <input
+              type="text"
+              value={paramName}
+              onChange={(e) => setParamName(e.target.value)}
+              placeholder="@asOfDate"
+            />
+          </label>
+
+          <label>
+            Test Parameter Value
+            <input
+              type="text"
+              value={paramValue}
+              onChange={(e) => setParamValue(e.target.value)}
+              placeholder="2026-11-01"
+            />
+          </label>
 
           {/* Row Limit */}
           <label>

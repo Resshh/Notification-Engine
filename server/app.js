@@ -1,4 +1,4 @@
-﻿const express = require("express");
+const express = require("express");
 const cors = require("cors");
 
 const queryRoutes = require("./routes/queryRoutes");
@@ -26,8 +26,9 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Query Management API
+// Query Management & Test Preview API (Story 5.1 & Story 5.2)
 app.use("/api/queries", queryRoutes);
+app.use("/api/query-preview", queryRoutes);
 
 // Database Connection Management API
 app.use("/api/connections", connectionRoutes);

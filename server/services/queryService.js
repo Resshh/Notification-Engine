@@ -1,8 +1,9 @@
 const Query = require("../models/Query");
 const { validateQuerySafety } = require("../security/validator");
+const { executeQuery } = require("../core/executeQuery");
 
 // Business logic service for saved queries.
-// Ref: Story 5.1, sub-tasks 132, 133, and safety rule BR-03 (saving never calls the source).
+// Ref: Story 5.1 (CRUD), Story 5.2 (Test Queries & Previews), and safety rule BR-03.
 
 /**
  * Creates and persists a new query definition after running security validation.
@@ -187,11 +188,64 @@ async function deleteQuery(queryId) {
   return { ok: true, message: `Query '${query.name}' successfully deleted.` };
 }
 
+/**
+ * Executes a saved query in preview/test mode, returning at most 10 rows.
+ * Ref: Story 5.2, sub-tasks 142, 143, FR-11.
+ *
+ * @param {string} queryId - MongoDB ObjectId of the saved query.
+ * @param {object} [runtimeParams={}] - Key-value parameter overrides from test runner or UI.
+ * @returns {Promise<{ columns: string[], rows: any[][], meta: object }>}
+ */
+async function testQuery(queryId, runtimeParams = {}) {
+  if (!queryId) {
+    const error = new Error("Query ID is required for test execution.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const queryDoc = await Query.findById(queryId).lean();
+  if (!queryDoc) {
+    const error = new Error(`Query with ID '${queryId}' not found.`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Call shared executeQuery() limited to 10 rows (Ref: FR-11, Sub-task 142)
+  return await executeQuery(queryDoc, runtimeParams, { limit: 10 });
+}
+
+/**
+ * Executes a transient/unsaved query definition in preview/test mode, returning at most 10 rows.
+ *
+ * @param {object} queryData - Transient query definition from client.
+ * @param {object} [runtimeParams={}] - Key-value parameter overrides.
+ * @returns {Promise<{ columns: string[], rows: any[][], meta: object }>}
+ */
+async function testQueryTransient(queryData, runtimeParams = {}) {
+  if (!queryData || !queryData.connectionId) {
+    const error = new Error("Target connection ID is required for query test.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate query safety before execution
+  const validationResult = validateQuerySafety(queryData);
+  if (!validationResult.valid) {
+    const error = new Error(validationResult.error);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return await executeQuery(queryData, runtimeParams, { limit: 10 });
+}
+
 module.exports = {
   createQuery,
   getAllQueries,
   getQueryById,
   updateQuery,
-  deleteQuery
+  deleteQuery,
+  testQuery,
+  testQueryTransient
 };
 

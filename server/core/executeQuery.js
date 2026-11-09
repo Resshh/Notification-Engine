@@ -25,9 +25,12 @@ const Query                   = require("../models/Query");
 // Each connector is loaded lazily so the server starts even if one is missing.
 function getConnector(type) {
   const connectorMap = {
-    "SAP HANA":    () => require("../connectors/hana"),
-    "SQL Server":  () => require("../connectors/sqlserver"),
+    "SAP HANA":      () => require("../connectors/hana"),
+    "HANA":          () => require("../connectors/hana"),
+    "SQL Server":    () => require("../connectors/sqlserver"),
+    "SQLServer":     () => require("../connectors/sqlserver"),
     "Service Layer": () => require("../connectors/serviceLayerClient"),
+    "ServiceLayer":  () => require("../connectors/serviceLayerClient"),
   };
 
   const loader = connectorMap[type];
@@ -40,8 +43,11 @@ function getConnector(type) {
 // ── Source name used in meta ──────────────────────────────────────────────────
 const SOURCE_NAMES = {
   "SAP HANA":      "HANA",
+  "HANA":          "HANA",
   "SQL Server":    "SQLServer",
+  "SQLServer":     "SQLServer",
   "Service Layer": "ServiceLayer",
+  "ServiceLayer":  "ServiceLayer",
 };
 
 /**
