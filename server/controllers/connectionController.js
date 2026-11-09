@@ -1,4 +1,4 @@
-const Connection = require("../models/Connection");
+﻿const Connection = require("../models/Connection");
 const { encryptPassword } = require("../security/crypto");
 
 // Create and save a new database connection
