@@ -23,15 +23,16 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
-    // Connect to MongoDB first.
+    // Connect to MongoDB before starting Express.
     await connectDB();
 
-    // Start Express after successful connection.
-    app.listen(PORT, () => {
+    // Start the server after successful database connection.
+    return app.listen(PORT, () => {
       console.log(
         `Server running on http://localhost:${PORT}`
       );
     });
+
   } catch (error) {
     console.error(
       "Server startup failed:",
@@ -42,9 +43,14 @@ const startServer = async () => {
   }
 };
 
-// Start the server when executed directly.
+// ======================================
+// Application Entry Point
+// ======================================
+
+// Start automatically only when server.js is run directly.
 if (require.main === module) {
   startServer();
-};
+}
 
+// Export for testing and integration.
 module.exports = startServer;
