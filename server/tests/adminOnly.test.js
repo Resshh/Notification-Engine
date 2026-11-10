@@ -1,29 +1,38 @@
-const test = require("node:test");
+// Support Jest and Node.js built-in test runner.
+const test =
+  typeof globalThis.test === "function"
+    ? globalThis.test
+    : require("node:test");
+
 const assert = require("node:assert/strict");
 
 const adminOnly = require("../middleware/adminOnly");
 
-// Simulate an Express response.
-function mockResponse() {
-  return {
-    statusCode: null,
-    body: null,
+// ======================================
+// Mock Express Response
+// ======================================
 
-    status(code) {
-      this.statusCode = code;
-      return this;
-    },
+const mockResponse = () => ({
+  statusCode: null,
+  body: null,
 
-    json(data) {
-      this.body = data;
-      return this;
-    }
-  };
-}
+  status(code) {
+    this.statusCode = code;
+    return this;
+  },
 
+  json(data) {
+    this.body = data;
+    return this;
+  }
+});
 
-// Test 1: Reject unauthenticated requests
-test("Reject unauthenticated users with 401", () => {
+// ======================================
+// Story 1.4 - Admin-Only Access Tests
+// ======================================
+
+// Test 1: Reject unauthenticated users.
+test("Story 1.4 - Reject unauthenticated users", () => {
   const req = {};
   const res = mockResponse();
 
@@ -35,12 +44,12 @@ test("Reject unauthenticated users with 401", () => {
 
   assert.equal(res.statusCode, 401);
   assert.equal(res.body.success, false);
+  assert.equal(res.body.message, "Authentication required");
   assert.equal(nextCalled, false);
 });
 
-
-// Test 2: Reject authenticated non-admin users
-test("Reject non-admin users with 403", () => {
+// Test 2: Reject authenticated non-admin users.
+test("Story 1.4 - Reject non-admin users", () => {
   const req = {
     user: {
       _id: "507f1f77bcf86cd799439011",
@@ -58,12 +67,12 @@ test("Reject non-admin users with 403", () => {
 
   assert.equal(res.statusCode, 403);
   assert.equal(res.body.success, false);
+  assert.equal(res.body.message, "Admin access required");
   assert.equal(nextCalled, false);
 });
 
-
-// Test 3: Allow authenticated administrators
-test("Allow administrators to proceed", () => {
+// Test 3: Allow authenticated administrators.
+test("Story 1.4 - Allow authenticated administrators", () => {
   const req = {
     user: {
       _id: "507f1f77bcf86cd799439011",
@@ -81,11 +90,11 @@ test("Allow administrators to proceed", () => {
 
   assert.equal(nextCalled, true);
   assert.equal(res.statusCode, null);
+  assert.equal(res.body, null);
 });
 
-
-// Test 4: Reject admin role without an authenticated user ID
-test("Reject admin role without user ID", () => {
+// Test 4: Reject admin role without authenticated user ID.
+test("Story 1.4 - Reject users without an ID", () => {
   const req = {
     user: {
       role: "admin"
@@ -101,17 +110,18 @@ test("Reject admin role without user ID", () => {
   });
 
   assert.equal(res.statusCode, 401);
+  assert.equal(res.body.message, "Authentication required");
   assert.equal(nextCalled, false);
 });
 
-
-// Test 5: Ignore admin role supplied in request body
-test("Reject fake admin role from request body", () => {
+// Test 5: Prevent authorization bypass.
+test("Story 1.4 - Reject attempts to bypass authorization", () => {
   const req = {
     body: {
       role: "admin"
     },
     headers: {
+      role: "admin",
       "x-role": "admin"
     }
   };
@@ -125,5 +135,6 @@ test("Reject fake admin role from request body", () => {
   });
 
   assert.equal(res.statusCode, 401);
+  assert.equal(res.body.success, false);
   assert.equal(nextCalled, false);
 });
