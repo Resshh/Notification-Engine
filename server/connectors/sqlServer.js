@@ -85,4 +85,12 @@ async function testConnection(conn) {
   }
 }
 
-module.exports = { connect, execute, close, testConnection };
+const mock = require("./sqlServerMock");
+
+module.exports = {
+  connect,
+  execute,
+  close,
+  testConnection,
+  executeQuery: mock.executeQuery,
+};

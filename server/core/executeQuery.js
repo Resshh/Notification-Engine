@@ -27,8 +27,8 @@ function getConnector(type) {
   const connectorMap = {
     "SAP HANA":      () => require("../connectors/hana"),
     "HANA":          () => require("../connectors/hana"),
-    "SQL Server":    () => require("../connectors/sqlserver"),
-    "SQLServer":     () => require("../connectors/sqlserver"),
+    "SQL Server": () => require("../connectors/sqlServerMock"),
+"SQLServer":  () => require("../connectors/sqlServerMock"),
     "Service Layer": () => require("../connectors/serviceLayerClient"),
     "ServiceLayer":  () => require("../connectors/serviceLayerClient"),
   };

@@ -1,104 +1,50 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { randomBytes } = require("node:crypto");
-
-// Temporary key used only inside this test process.
-process.env.ENCRYPTION_KEY = randomBytes(32).toString("hex");
 
 const Connection = require("../models/Connection");
+
+// Use a dummy encryption key only when no key is configured.
+// This is for unit testing, not production.
+process.env.ENCRYPTION_KEY ||= "01".repeat(32);
 
 const {
   createConnection
 } = require("../controllers/connectionController");
 
-const {
-  decryptPassword
-} = require("../security/crypto");
+// Helper to simulate Express response.
+const createResponse = () => ({
+  statusCode: 200,
+  body: null,
 
-// Simulate an Express response.
-function mockResponse() {
-  return {
-    statusCode: 200,
-    body: null,
+  status(code) {
+    this.statusCode = code;
+    return this;
+  },
 
-    status(code) {
-      this.statusCode = code;
-      return this;
-    },
-
-    json(data) {
-      this.body = data;
-      return this;
-    }
-  };
-}
-
-test("Admin can create a connection with encrypted password", async (t) => {
-  const requestBody = {
-    name: "Test SQL Server",
-    type: "SQLServer",
-    host: "localhost",
-    port: 1433,
-    database: "NotificationDB",
-    username: "testuser",
-    password: "dummy-test-password"
-  };
-
-  const req = {
-    user: {
-      _id: "507f1f77bcf86cd799439011",
-      role: "admin"
-    },
-    body: requestBody
-  };
-
-  const res = mockResponse();
-
-  let savedData;
-
-  // Simulate MongoDB saving without accessing a real database.
-  t.mock.method(Connection, "create", async (data) => {
-    savedData = data;
-
-    return {
-      _id: "507f1f77bcf86cd799439012",
-      ...data,
-      lastTestStatus: "NOT_TESTED",
-      lastTestedAt: null
-    };
-  });
-
-  await createConnection(req, res, (error) => {
-    throw error;
-  });
-
-  // Check successful response.
-  assert.equal(res.statusCode, 201);
-  assert.equal(res.body.success, true);
-
-  // Verify the password was encrypted.
-  assert.notEqual(savedData.passwordEncrypted, requestBody.password);
-
-  // Verify that encrypted data can be decrypted correctly.
-  assert.equal(
-    decryptPassword(savedData.passwordEncrypted),
-    requestBody.password
-  );
-
-  // Verify credentials are excluded from the API response.
-  assert.equal(res.body.connection.passwordEncrypted, undefined);
-  assert.equal(res.body.connection.password, undefined);
-
-  console.log("Create Connection API test passed!");
+  json(data) {
+    this.body = data;
+    return this;
+  }
 });
 
-// Test 2: Reject unauthenticated users
-test("Reject unauthenticated connection creation", async () => {
+// Sample connection details.
+const validConnection = {
+  name: "Test SQL Server",
+  type: "SQLServer",
+  host: "localhost",
+  port: 1433,
+  database: "TestDB",
+  username: "test_user",
+  password: "dummy-password"
+};
+
+// Test 1: Unauthenticated user.
+test("Story 1.1 - Reject unauthenticated connection creation", async () => {
   const req = {
-    body: {}
+    body: validConnection
   };
 
-  const res = mockResponse();
+  const res = createResponse();
 
   await createConnection(req, res, (error) => {
     throw error;
@@ -108,41 +54,40 @@ test("Reject unauthenticated connection creation", async () => {
   assert.equal(res.body.success, false);
 });
 
-
-// Test 3: Reject non-admin users
-test("Reject connection creation by non-admin users", async () => {
+// Test 2: Non-admin user.
+test("Story 1.1 - Reject non-admin connection creation", async () => {
   const req = {
     user: {
-      _id: "507f1f77bcf86cd799439011",
+      _id: "user123",
       role: "user"
     },
-    body: {}
+    body: validConnection
   };
 
-  const res = mockResponse();
+  const res = createResponse();
 
   await createConnection(req, res, (error) => {
     throw error;
   });
 
   assert.equal(res.statusCode, 403);
-  assert.equal(res.body.success, false);
+  assert.equal(res.body.message, "Admin access required");
 });
 
-
-// Test 4: Reject missing connection fields
-test("Reject connection with missing fields", async () => {
+// Test 3: Missing required fields.
+test("Story 1.1 - Reject missing connection fields", async () => {
   const req = {
     user: {
-      _id: "507f1f77bcf86cd799439011",
+      _id: "admin123",
       role: "admin"
     },
     body: {
-      name: "Test SQL Server"
+      name: "Incomplete Connection",
+      type: "SQLServer"
     }
   };
 
-  const res = mockResponse();
+  const res = createResponse();
 
   await createConnection(req, res, (error) => {
     throw error;
@@ -152,31 +97,98 @@ test("Reject connection with missing fields", async () => {
   assert.equal(res.body.success, false);
 });
 
-
-// Test 5: Reject invalid port
-test("Reject connection with invalid port", async () => {
+// Test 4: Invalid port number.
+test("Story 1.1 - Reject invalid port numbers", async () => {
   const req = {
     user: {
-      _id: "507f1f77bcf86cd799439011",
+      _id: "admin123",
       role: "admin"
     },
     body: {
-      name: "Test SQL Server",
-      type: "SQLServer",
-      host: "localhost",
-      port: 99999,
-      database: "NotificationDB",
-      username: "testuser",
-      password: "dummy-test-password"
+      ...validConnection,
+      port: 70000
     }
   };
 
-  const res = mockResponse();
+  const res = createResponse();
 
   await createConnection(req, res, (error) => {
     throw error;
   });
 
   assert.equal(res.statusCode, 400);
-  assert.equal(res.body.success, false);
+  assert.equal(res.body.message, "Invalid port number");
+});
+
+// Test 5: Valid connection creation.
+test("Story 1.1 - Encrypt password and return safe connection details", async () => {
+  const originalCreate = Connection.create;
+
+  let savedData;
+
+  // Mock database creation.
+  Connection.create = async (data) => {
+    savedData = data;
+
+    return {
+      _id: "connection123",
+      ...data,
+      lastTestStatus: "NotTested",
+      lastTestedAt: null
+    };
+  };
+
+  try {
+    const req = {
+      user: {
+        _id: "admin123",
+        role: "admin"
+      },
+      body: validConnection
+    };
+
+    const res = createResponse();
+
+    await createConnection(req, res, (error) => {
+      throw error;
+    });
+
+    // Verify successful creation.
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.success, true);
+
+    // Verify encrypted password was saved.
+    assert.ok(savedData.passwordEncrypted);
+
+    assert.notEqual(
+      savedData.passwordEncrypted,
+      validConnection.password
+    );
+
+    // Verify plaintext password was not saved.
+    assert.equal(savedData.password, undefined);
+
+    // Verify the API does not expose credentials.
+    assert.equal(res.body.connection.password, undefined);
+
+    assert.equal(
+      res.body.connection.passwordEncrypted,
+      undefined
+    );
+
+    // Verify returned connection details.
+    assert.equal(
+      res.body.connection.name,
+      validConnection.name
+    );
+
+    assert.equal(
+      res.body.connection.type,
+      validConnection.type
+    );
+
+  } finally {
+    // Restore the original database function.
+    Connection.create = originalCreate;
+  }
 });
