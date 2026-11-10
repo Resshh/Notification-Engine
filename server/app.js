@@ -1,39 +1,76 @@
-﻿// Load environment variables
-require("dotenv").config();
+﻿const express = require("express");
+const cors = require("cors");
 
-const express = require("express");
+// ======================================
+// Route Imports
+// ======================================
 
-// Batch 2 - Database Connection Routes
 const connectionRoutes = require("./routes/connectionRoutes");
+const queryRoutes = require("./routes/queryRoutes");
+
+// ======================================
+// Middleware Imports
+// ======================================
+
+const errorHandler = require("./middleware/errorHandler");
+
+// ======================================
+// Express Application
+// ======================================
 
 const app = express();
 
-// Middleware
-app.use(express.json());
+// ======================================
+// Global Middleware
+// ======================================
 
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ======================================
+// Root Endpoint
+// ======================================
+
+app.get("/", (req, res) => {
+  res.send("Server running");
+});
+
+// ======================================
 // Health Check API
+// ======================================
+
 app.get("/api/health", (req, res) => {
   res.status(200).json({
-    status: "ok"
+    success: true,
+    message: "Notification Engine API is running"
   });
 });
 
 // ======================================
-// Register Application Routes
+// Batch 2 - Query Management Routes
 // ======================================
 
-// Batch 1 - Notification Engine
-// Batch 1 routes will be registered here.
+// Stories 5.1, 5.2 and 5.4
+app.use("/api/queries", queryRoutes);
+app.use("/api/query-preview", queryRoutes);
 
-// Batch 2 - Data Connectors
+// ======================================
+// Batch 2 - Connection Management Routes
+// ======================================
+
+// Stories 1.1 and 1.4
 app.use("/api/connections", connectionRoutes);
 
 // ======================================
-// Start Server
+// Central Error Handler
 // ======================================
 
-const PORT = process.env.PORT || 5000;
+// Must be registered after all application routes.
+app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// ======================================
+// Export Express Application
+// ======================================
+
+module.exports = app;
