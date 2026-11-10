@@ -1,39 +1,55 @@
-﻿// Load environment variables
+
 require("dotenv").config();
 
 const express = require("express");
-
-// Batch 2 - Database Connection Routes
-const connectionRoutes = require("./routes/connectionRoutes");
+const mongoose = require("mongoose");
 
 const app = express();
 
 // Middleware
 app.use(express.json());
 
-// Health Check API
+// Health check
 app.get("/api/health", (req, res) => {
   res.status(200).json({
-    status: "ok"
+    status: "ok",
+    testMode: process.env.TEST_MODE === "true"
   });
 });
 
-// ======================================
-// Register Application Routes
-// ======================================
+// Authentication routes
+app.use("/api/auth", require("./routes/auth"));
 
-// Batch 1 - Notification Engine
-// Batch 1 routes will be registered here.
+// Recipient List routes
+app.use("/api/recipient-lists", require("./routes/recipientList"));
 
-// Batch 2 - Data Connectors
-app.use("/api/connections", connectionRoutes);
+// Database Connection routes
+app.use("/api/connections", require("./routes/connectionRoutes"));
 
-// ======================================
-// Start Server
-// ======================================
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err);
 
+  res.status(err.status || 500).json({
+    error: err.status ? err.message : "Something went wrong"
+  });
+});
+
+// Connect MongoDB and start server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (!process.env.MONGO_URI) {
+  console.error("MONGO_URI is not configured");
+  process.exit(1);
+}
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("MongoDB connection failed:", err);
+    process.exit(1);
+  });
