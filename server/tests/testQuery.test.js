@@ -325,5 +325,23 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
       expect(result.rows.length).toBeLessThanOrEqual(10);
       expect(result.meta.source).toBe("HANA");
     });
+
+    test("applies columnMapping during query preview", async () => {
+      const queryWithMapping = {
+        connectionId: mockSqlConnection._id,
+        kind: "sql",
+        queryText: "SELECT InvoiceNo, CustomerName, Amount FROM Invoices",
+        params: [],
+        columnMapping: [
+          { source: "InvoiceNo", common: "BillNumber" },
+          { source: "CustomerName", common: "ClientName" }
+        ]
+      };
+
+      const result = await testQueryTransient(queryWithMapping);
+      expect(result.columns).toEqual(["BillNumber", "ClientName", "Amount"]);
+      expect(result.rows.length).toBeLessThanOrEqual(10);
+      expect(result.meta.source).toBe("SQLServer");
+    });
   });
 });

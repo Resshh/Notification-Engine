@@ -1,36 +1,100 @@
 /**
  * SQL Server Connector
- * Story 2.1 & 2.2 | Sprint 1 & 2
- * Ref: FR-05, FR-14, FR-16, sub-tasks #52-#58, #60-#64
- *
- * Provides:
- *   - executeQuery(connectionDetails, queryDoc, params, options) -> { columns, rows }
- *   - testConnection(connectionDetails) -> { ok, message }
+ * Stories 2.1, 2.2, 5.2, 5.6 | Sprint 1 & 2
+ * Ref: FR-05, FR-14, FR-16, sub-tasks #51-#66, #146, #169-#171
  *
  * Strategy:
- *   Attempts mssql pool connection if configured and available.
- *   Falls back to in-memory engine loaded from mock-data/demo/ for repeatable offline testing.
+ *   If 'mssql' is installed and configured -> connects to real SQL Server.
+ *   Otherwise -> gracefully falls back to the in-memory alasql engine loaded
+ *   from mock-data/demo/ for repeatable offline testing and demo execution.
  */
 
-const alasql = require("alasql");
 const path = require("path");
 const fs = require("fs");
-const { validateQuerySafety } = require("../security/validator");
-const { sanitizeError } = require("../security/sanitiser");
+const alasql = require("alasql");
 
+let sql = null;
+try {
+  sql = require("mssql");
+} catch {
+  // mssql not installed or offline mode
+  sql = null;
+}
+
+const pools = new Map();
+
+function poolKey(c) {
+  return `${c.host}:${c.port || 1433}/${c.database}/${c.username}`;
+}
+
+function buildConfig(c, timeoutMs = 30000) {
+  return {
+    server: c.host,
+    port: Number(c.port) || 1433,
+    database: c.database,
+    user: c.username,
+    password: c.password,
+    connectionTimeout: 15000,
+    requestTimeout: timeoutMs,
+    pool: { max: 5, min: 0, idleTimeoutMillis: 30000 },
+    options: {
+      encrypt: true,
+      trustServerCertificate: process.env.SQLSERVER_TRUST_LOCAL_CERT === "true",
+    },
+  };
+}
+
+function toSafeError(err) {
+  const code = err && (err.code || (err.originalError && err.originalError.code));
+  if (code === "ELOGIN") return new Error("Login failed. Check the username and password.");
+  if (code === "ETIMEOUT") return new Error("The connection or query timed out.");
+  if (code === "ESOCKET" || code === "ECONNREFUSED" || code === "ENOTFOUND")
+    return new Error("Could not reach the SQL Server. Check the host and port.");
+  return new Error("SQL Server error: " + (err.message || "Failed to execute."));
+}
+
+async function connect(conn, timeoutMs = 30000) {
+  if (!sql) {
+    throw new Error("mssql driver is not available in offline environment.");
+  }
+  const key = poolKey(conn);
+  if (pools.has(key)) return pools.get(key);
+  try {
+    const pool = await new sql.ConnectionPool(buildConfig(conn, timeoutMs)).connect();
+    pools.set(key, pool);
+    return pool;
+  } catch (err) {
+    throw toSafeError(err);
+  }
+}
+
+async function close(conn) {
+  const key = poolKey(conn);
+  const pool = pools.get(key);
+  if (pool) {
+    await pool.close();
+    pools.delete(key);
+  }
+}
+
+// ── Mock Data Fallback Engine (alasql) ──────────────────────────────────────────
 const MOCK_DATA_DIR = path.resolve(__dirname, "../../mock-data/demo");
-
-let initialised = false;
+let mockInitialised = false;
 
 function initMockDb() {
-  if (initialised) return;
+  if (mockInitialised) return;
 
-  // Register SQL Server specific functions in alasql
   alasql.fn.GETDATE = () => new Date().toISOString().slice(0, 10);
   alasql.fn.DATEDIFF = (unit, start, end) => {
-    if (!start || !end) return 0;
+    let s = start;
+    let e = end;
+    if (end === undefined) {
+      s = unit;
+      e = start;
+    }
+    if (!s || !e) return 0;
     const msPerDay = 86400000;
-    return Math.floor((new Date(end) - new Date(start)) / msPerDay);
+    return Math.floor((new Date(e) - new Date(s)) / msPerDay);
   };
 
   alasql(`
@@ -85,41 +149,71 @@ function initMockDb() {
     console.warn("[SQL Server Connector] Error loading mock data:", err.message);
   }
 
-  initialised = true;
+  mockInitialised = true;
 }
 
 /**
- * Executes a query using SQL Server connector or mock fallback.
- * @param {object} connectionDetails - Connection details (decrypted)
- * @param {object} queryDoc - Query document
- * @param {object} params - Key-value parameter map
+ * Core query execution interface used by runQuery and executeQuery.
+ *
+ * @param {object} connectionDetails - Connection settings
+ * @param {object} queryDoc - Mongoose Query document or plain object
+ * @param {object} params - Key-value parameter dictionary
  * @param {object} options - Execution options { limit }
  * @returns {Promise<{ columns: string[], rows: any[][] }>}
  */
 async function executeQuery(connectionDetails, queryDoc, params = {}, options = {}) {
+  // If mssql is available and not in mock mode, attempt real execution
+  if (sql && process.env.USE_REAL_SQLSERVER === "true") {
+    try {
+      const pool = await connect(connectionDetails);
+      const request = pool.request();
+
+      // Bind parameters
+      for (const [k, v] of Object.entries(params)) {
+        const paramName = k.replace(/^@/, "");
+        request.input(paramName, v);
+      }
+
+      const result = await request.query(queryDoc.queryText);
+      const columns = Object.keys(result.recordset.columns || {});
+      const limit = options.limit || queryDoc.rowLimit || 1000;
+      const sliced = result.recordset.slice(0, limit);
+      const rows = sliced.map((r) => columns.map((c) => r[c]));
+      return { columns, rows };
+    } catch (err) {
+      throw toSafeError(err);
+    }
+  }
+
+  // Otherwise, use in-memory mock engine with SQL Server dialect
   initMockDb();
 
-  let sql = (queryDoc.queryText || "").trim();
+  let sqlText = (queryDoc.queryText || "").trim();
 
-  // Strip dbo. prefix if present for mock engine compatibility
-  let parsedSql = sql.replace(/\bdbo\./gi, "");
+  // Strip schema prefix e.g. dbo.
+  let parsedSql = sqlText.replace(/\bdbo\./gi, "");
 
-  // Replace named @parameters with values
-  const paramKeys = Object.keys(params);
-  for (const key of paramKeys) {
-    const cleanKey = key.startsWith("@") ? key : `@${key}`;
-    const val = params[key];
-    const formattedVal = typeof val === "string" ? `'${val.replace(/'/g, "''")}'` : val;
+  // Handle T-SQL DATEDIFF unquoted datepart (e.g. DATEDIFF(day, ...) -> DATEDIFF('day', ...))
+  parsedSql = parsedSql.replace(/\bDATEDIFF\s*\(\s*(day|d|dd|month|m|mm|year|yy|yyyy)\s*,/gi, (match, part) => {
+    return `DATEDIFF('${part}',`;
+  });
+
+  // Handle T-SQL bit boolean compatibility for mock data (Paid = 0 / Paid = 1)
+  parsedSql = parsedSql.replace(/\bPaid\s*=\s*0\b/gi, "(Paid = false OR Paid = 0)");
+  parsedSql = parsedSql.replace(/\bPaid\s*=\s*1\b/gi, "(Paid = true OR Paid = 1)");
+
+  // Substitute named parameters
+  for (const [k, v] of Object.entries(params)) {
+    const cleanKey = k.startsWith("@") ? k : `@${k}`;
+    const formattedVal = typeof v === "string" ? `'${v.replace(/'/g, "''")}'` : v;
     parsedSql = parsedSql.split(cleanKey).join(formattedVal);
   }
 
-  // Handle TOP / LIMIT
   const limit = options.limit || queryDoc.rowLimit || 1000;
   if (!/\bTOP\b/i.test(parsedSql) && !/\bLIMIT\b/i.test(parsedSql)) {
     parsedSql = parsedSql.replace(/^SELECT\s+/i, `SELECT TOP ${limit} `);
   }
 
-  // Convert SQL Server TOP N to alasql TOP N
   try {
     const records = alasql(parsedSql);
     if (!Array.isArray(records) || records.length === 0) {
@@ -136,16 +230,31 @@ async function executeQuery(connectionDetails, queryDoc, params = {}, options = 
   }
 }
 
-/**
- * Tests connection to SQL Server.
- * @param {object} connectionDetails
- * @returns {Promise<{ ok: boolean, message: string }>}
- */
-async function testConnection(connectionDetails) {
+async function execute(conn, queryText) {
+  return executeQuery(conn, { queryText }, {}, {});
+}
+
+async function testConnection(conn) {
+  if (sql && process.env.USE_REAL_SQLSERVER === "true") {
+    let pool;
+    try {
+      pool = await new sql.ConnectionPool(buildConfig(conn, 15000)).connect();
+      await pool.request().query("SELECT 1 AS ok");
+      return { ok: true, message: "Connection successful." };
+    } catch (err) {
+      return { ok: false, message: toSafeError(err).message };
+    } finally {
+      if (pool) await pool.close().catch(() => {});
+    }
+  }
+
   return { ok: true, message: "SQL Server connection verified successfully." };
 }
 
 module.exports = {
+  connect,
+  execute,
   executeQuery,
-  testConnection
+  close,
+  testConnection,
 };
