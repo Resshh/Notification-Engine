@@ -1,6 +1,6 @@
 /**
  * Excel Builder
- * Story 6.4 | Sprint 2
+ * Story 6.4 | Owner: Swarnalakshmi Perumal | Sprint 2
  * Ref: sub-tasks #196, #197, #198, #199
  *
  * Converts a common-format result { columns, rows } into an XLSX file using ExcelJS.

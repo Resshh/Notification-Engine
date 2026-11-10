@@ -1,6 +1,6 @@
 /**
  * Common Data Formatter
- * Story 6.1 | Sprint 1
+ * Story 6.1 | Owner: Swarnalakshmi Perumal | Sprint 1
  * Ref: FR-17, sub-tasks #177, #178, #179, #180
  *
  * Takes raw { columns, rows } from any connector and returns
@@ -12,19 +12,17 @@
  *  - meta always includes source and rowCount.
  */
 
-const { applyFieldMapping } = require("./fieldMapping");
-
 /**
  * Applies column mapping to rename raw column names to common-format names.
- * Delegates to the fieldMapping utility (Story 5.5).
- * Supports both dictionary objects { RawCol: CommonCol } and arrays [{ source, common }].
+ * columnMapping is stored per query: { "RawColName": "CommonColName", ... }
  *
- * @param {string[]} columns - Raw column names from the connector
- * @param {object|Array} columnMapping - Mapping definition
+ * @param {string[]} columns      - Raw column names from the connector
+ * @param {object}   columnMapping - Map of rawName → commonName
  * @returns {string[]} Renamed column array
  */
 function applyColumnMapping(columns, columnMapping) {
-  return applyFieldMapping(columns, columnMapping);
+  if (!columnMapping || typeof columnMapping !== "object") return columns;
+  return columns.map((col) => columnMapping[col] || col);
 }
 
 /**
@@ -105,7 +103,6 @@ function isValidRaw(raw) {
 module.exports = {
   formatResult,
   applyColumnMapping,
-  applyFieldMapping,
   isValidRaw,
 };
 
