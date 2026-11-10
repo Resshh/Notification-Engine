@@ -39,9 +39,9 @@ function getConnector(type) {
 
     "HANA": () => require("../connectors/hana"),
 
-    "SQL Server": () => require("../connectors/sqlServerMock"),
+    "SQL Server": () => require("../connectors/sqlServer"),
 
-    "SQLServer": () => require("../connectors/sqlServerMock"),
+    "SQLServer": () => require("../connectors/sqlServer"),
 
     "Service Layer": () =>
       require("../connectors/serviceLayerClient"),

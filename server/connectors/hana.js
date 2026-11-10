@@ -20,6 +20,7 @@
 
 const { validateQuerySafety } = require("../security/validator");
 const { sanitizeError }       = require("../security/sanitiser");
+const { getEffectiveRowLimit, getEffectiveTimeout, withQueryTimeout, enforceRowLimit } = require("../config/limits");
 
 // ── Attempt to load real HANA client, fall back to mock ──────────────────────
 let hanaClient = null;
@@ -36,19 +37,6 @@ try {
 }
 
 // ── Timeout helper ────────────────────────────────────────────────────────────
-const DEFAULT_TIMEOUT_MS = parseInt(process.env.QUERY_TIMEOUT_MS) || 30000;
-
-function withTimeout(promise, ms) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`Query timed out after ${ms / 1000} seconds.`)),
-      ms
-    );
-    promise
-      .then((val) => { clearTimeout(timer); resolve(val); })
-      .catch((err) => { clearTimeout(timer); reject(err); });
-  });
-}
 
 // ── Mock execution ────────────────────────────────────────────────────────────
 /**
@@ -139,7 +127,7 @@ function _buildParamValues(sql, params) {
  * @returns {Promise<{ columns: string[], rows: any[][] }>}
  */
 async function executeQuery(connectionDetails, queryDoc, mergedParams, options = {}) {
-  const limit = options.limit || 1000;
+  const limit = getEffectiveRowLimit(options.limit);
 
   // ── Validate before execution (sub-task #89) ─────────────────────────────
   const validation = validateQuerySafety({
@@ -153,27 +141,19 @@ async function executeQuery(connectionDetails, queryDoc, mergedParams, options =
   }
 
   try {
-    let raw;
+    // Shared timeout from config/limits.js (sub-task #90)
+    const raw = await withQueryTimeout(
+      () => (usingMock
+        ? runOnMock(queryDoc, mergedParams, limit)
+        : runOnRealHana(connectionDetails, queryDoc, mergedParams, limit)),
+      getEffectiveTimeout(),
+      "SAP HANA"
+    );
 
-    if (usingMock) {
-      raw = await withTimeout(
-        runOnMock(queryDoc, mergedParams, limit),
-        DEFAULT_TIMEOUT_MS
-      );
-    } else {
-      raw = await withTimeout(
-        runOnRealHana(connectionDetails, queryDoc, mergedParams, limit),
-        DEFAULT_TIMEOUT_MS
-      );
-    }
-
-    // ── Enforce row limit (sub-task #90) ─────────────────────────────────
-    if (raw.rows.length > limit) {
-      raw.rows = raw.rows.slice(0, limit);
-    }
+    // Shared row limit
+    raw.rows = enforceRowLimit(raw.rows, limit).rows;
 
     return raw; // { columns, rows } — formatter handles the rest
-
   } catch (err) {
     const safe = sanitizeError(err);
     throw new Error(`HANA execution failed: ${safe.message}`);
