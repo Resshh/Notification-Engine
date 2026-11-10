@@ -22,12 +22,55 @@ export default function QuerySetup() {
   const [paramName, setParamName] = useState('@asOfDate');
   const [paramValue, setParamValue] = useState('2026-11-01');
 
+  // Field Mapping state (Ref: Story 5.5, Sub-task 166)
+  const [columnMappings, setColumnMappings] = useState([
+    { source: 'DocNum', common: 'InvoiceNo' },
+    { source: 'CardName', common: 'CustomerName' },
+    { source: 'DocTotal', common: 'Amount' }
+  ]);
+
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Field mapping handlers (Story 5.5)
+  function handleAddMappingRow() {
+    setColumnMappings([...columnMappings, { source: '', common: '' }]);
+  }
+
+  function handleRemoveMappingRow(index) {
+    if (columnMappings.length === 1) {
+      setColumnMappings([{ source: '', common: '' }]);
+    } else {
+      setColumnMappings(columnMappings.filter((_, i) => i !== index));
+    }
+  }
+
+  function handleMappingChange(index, field, value) {
+    const updated = [...columnMappings];
+    updated[index][field] = value;
+    setColumnMappings(updated);
+  }
+
+  function handleAutoFillMappings() {
+    if (!preview || !Array.isArray(preview.columns) || preview.columns.length === 0) {
+      return;
+    }
+    const existingSources = new Set(columnMappings.map((m) => m.source.trim()));
+    const newRows = [...columnMappings.filter((m) => m.source.trim())];
+
+    for (const col of preview.columns) {
+      if (!existingSources.has(col)) {
+        newRows.push({ source: col, common: col });
+        existingSources.add(col);
+      }
+    }
+
+    setColumnMappings(newRows.length > 0 ? newRows : [{ source: '', common: '' }]);
+  }
 
   // Validate the form before saving
   function validateForm() {
@@ -64,6 +107,11 @@ export default function QuerySetup() {
     try {
       validateForm();
 
+      // Filter out incomplete mapping entries (Story 5.5)
+      const validMappings = columnMappings
+        .map((m) => ({ source: m.source.trim(), common: m.common.trim() }))
+        .filter((m) => m.source && m.common);
+
       const queryData = {
         name: name.trim(),
         connectionId: connectionId.trim(),
@@ -72,6 +120,7 @@ export default function QuerySetup() {
         entity: kind === 'odata' ? entity : '',
         filter: kind === 'odata' ? filter.trim() : '',
         select: kind === 'odata' ? select.trim() : '',
+        columnMapping: validMappings,
         rowLimit: Number(rowLimit)
       };
 
@@ -118,6 +167,11 @@ export default function QuerySetup() {
         runtimeParams[paramName.trim()] = paramValue.trim();
       }
 
+      // Filter out incomplete mapping entries (Story 5.5)
+      const validMappings = columnMappings
+        .map((m) => ({ source: m.source.trim(), common: m.common.trim() }))
+        .filter((m) => m.source && m.common);
+
       let result;
       if (queryId.trim()) {
         // Test saved query by ID (Sub-task 142)
@@ -133,6 +187,7 @@ export default function QuerySetup() {
           entity: kind === 'odata' ? entity : '',
           filter: kind === 'odata' ? filter.trim() : '',
           select: kind === 'odata' ? select.trim() : '',
+          columnMapping: validMappings,
           rowLimit: Number(rowLimit) || 1000
         };
         result = await previewTransientQuery(transientQuery, runtimeParams);
@@ -331,6 +386,61 @@ export default function QuerySetup() {
               }}
             />
           </label>
+
+          {/* Field Mapping Section (Story 5.5, Sub-task 166) */}
+          <div className="full-width mapping-card">
+            <div className="mapping-header">
+              <div>
+                <h4>Field Mapping (Source Column &rarr; Common Format Name)</h4>
+                <p>Map database/OData column names to standard common format names. Unmapped columns retain their original names.</p>
+              </div>
+              {preview?.columns?.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-secondary-sm"
+                  onClick={handleAutoFillMappings}
+                >
+                  Auto-fill from Preview Columns
+                </button>
+              )}
+            </div>
+
+            {columnMappings.map((row, index) => (
+              <div key={index} className="mapping-row">
+                <input
+                  type="text"
+                  value={row.source}
+                  onChange={(e) => handleMappingChange(index, 'source', e.target.value)}
+                  placeholder="Source column (e.g. DocNum)"
+                />
+                <span className="mapping-arrow">&rarr;</span>
+                <input
+                  type="text"
+                  value={row.common}
+                  onChange={(e) => handleMappingChange(index, 'common', e.target.value)}
+                  placeholder="Common name (e.g. InvoiceNo)"
+                />
+                <button
+                  type="button"
+                  className="mapping-delete"
+                  onClick={() => handleRemoveMappingRow(index)}
+                  title="Remove mapping"
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+
+            <div className="mapping-btn-group">
+              <button
+                type="button"
+                className="btn-secondary-sm"
+                onClick={handleAddMappingRow}
+              >
+                + Add Column Mapping
+              </button>
+            </div>
+          </div>
 
         </div>
 

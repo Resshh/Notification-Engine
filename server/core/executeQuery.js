@@ -14,61 +14,94 @@
  * Used internally by runQuery() and by the Test Query API (Story 5.2).
  */
 
-const { decryptPassword }     = require("../security/crypto");
-const { validateQuerySafety } = require("../security/validator");
-const { sanitizeError }       = require("../security/sanitiser");
-const { formatResult }        = require("./formatter");
-const Connection              = require("../models/Connection");
-const Query                   = require("../models/Query");
+// ======================================
+// Imports
+// ======================================
 
-// ── Connector registry ────────────────────────────────────────────────────────
-// Each connector is loaded lazily so the server starts even if one is missing.
+const { decryptPassword } = require("../security/crypto");
+const { validateQuerySafety } = require("../security/validator");
+const { sanitizeError } = require("../security/sanitiser");
+const { formatResult } = require("./formatter");
+
+const Connection = require("../models/Connection");
+const Query = require("../models/Query");
+
+// ======================================
+// Connector Registry
+// ======================================
+
+// Each connector is loaded lazily so the server can start
+// even when an optional connector is unavailable.
+
 function getConnector(type) {
   const connectorMap = {
-    "SAP HANA":      () => require("../connectors/hana"),
-    "HANA":          () => require("../connectors/hana"),
-    "SQL Server": () => require("../connectors/sqlServerMock"),
-"SQLServer":  () => require("../connectors/sqlServerMock"),
-    "Service Layer": () => require("../connectors/serviceLayerClient"),
-    "ServiceLayer":  () => require("../connectors/serviceLayerClient"),
+    "SAP HANA": () => require("../connectors/hana"),
+
+    "HANA": () => require("../connectors/hana"),
+
+    "SQL Server": () => require("../connectors/sqlServer"),
+
+    "SQLServer": () => require("../connectors/sqlServer"),
+
+    "Service Layer": () =>
+      require("../connectors/serviceLayerClient"),
+
+    "ServiceLayer": () =>
+      require("../connectors/serviceLayerClient")
   };
 
   const loader = connectorMap[type];
+
   if (!loader) {
     throw new Error(`Unknown connection type: '${type}'.`);
   }
+
   return loader();
 }
 
-// ── Source name used in meta ──────────────────────────────────────────────────
+// ======================================
+// Source Names
+// ======================================
+
 const SOURCE_NAMES = {
-  "SAP HANA":      "HANA",
-  "HANA":          "HANA",
-  "SQL Server":    "SQLServer",
-  "SQLServer":     "SQLServer",
+  "SAP HANA": "HANA",
+  "HANA": "HANA",
+
+  "SQL Server": "SQLServer",
+  "SQLServer": "SQLServer",
+
   "Service Layer": "ServiceLayer",
-  "ServiceLayer":  "ServiceLayer",
+  "ServiceLayer": "ServiceLayer"
 };
 
+// ======================================
+// Merge Query Parameters
+// ======================================
+
 /**
- * Merges saved query params with runtime params passed by Batch 1.
- * Runtime values override saved defaults for the same key.
+ * Merge saved query parameters with runtime parameters.
  *
- * @param {Array}  savedParams   - Saved param definitions: [{ name, defaultValue }]
- * @param {object} runtimeParams - Params from the caller: { paramName: value }
- * @returns {object} Merged params object
+ * Runtime parameters override saved defaults.
+ *
+ * @param {Array} savedParams
+ * @param {Object} runtimeParams
+ * @returns {Object}
  */
+
 function mergeParams(savedParams = [], runtimeParams = {}) {
   const merged = {};
 
-  // Start with saved defaults
-  for (const p of savedParams) {
-    if (p && p.name) {
-      merged[p.name] = p.defaultValue !== undefined ? p.defaultValue : null;
+  // Add saved parameter defaults.
+  for (const param of savedParams) {
+    if (param && param.name) {
+      merged[param.name] =
+        param.defaultValue !== undefined
+          ? param.defaultValue
+          : null;
     }
   }
 
-  // Runtime values override defaults (Ref: sub-task #184)
+  // Override defaults using runtime parameters.
   for (const [key, value] of Object.entries(runtimeParams)) {
     merged[key] = value;
   }
@@ -76,77 +109,166 @@ function mergeParams(savedParams = [], runtimeParams = {}) {
   return merged;
 }
 
+// ======================================
+// Execute Query
+// ======================================
+
 /**
- * Core execution function. Called by runQuery() and the Test Query API.
+ * Execute a saved query using its configured data source.
  *
- * @param {object} queryDoc     - Mongoose Query document (or plain object for stubs)
- * @param {object} runtimeParams - Runtime params from Batch 1 or test caller
- * @param {object} options       - { limit: number } — override row limit (used by Test Query: 10 rows)
+ * @param {Object} queryDoc
+ * @param {Object} runtimeParams
+ * @param {Object} options
+ *
  * @returns {Promise<{ columns, rows, meta }>}
  */
+
 async function executeQuery(queryDoc, runtimeParams = {}, options = {}) {
   let connectionDoc;
 
   try {
-    // ── Step 1: Load the connection ─────────────────────────────────────────
-    connectionDoc = await Connection.findById(queryDoc.connectionId).lean();
+    // ======================================
+    // Step 1: Load Database Connection
+    // ======================================
+
+    // passwordEncrypted has select:false in the Connection model.
+    // Explicitly retrieve it for internal query execution.
+
+    connectionDoc = await Connection.findById(queryDoc.connectionId)
+      .select("+passwordEncrypted")
+      .lean();
+
     if (!connectionDoc) {
-      throw new Error(`Connection not found for query '${queryDoc.name}'.`);
+      throw new Error(
+        `Connection not found for query '${queryDoc.name}'.`
+      );
     }
 
-    // ── Step 2: Decrypt the password ────────────────────────────────────────
-    // Uses the ONE shared decrypt — never decrypted anywhere else (sub-task #77)
-    const plainPassword = decryptPassword(connectionDoc.passwordEncrypted);
+    // ======================================
+    // Step 2: Decrypt Connection Password
+    // ======================================
+
+    // Separate the encrypted password from connection details.
+    const {
+      passwordEncrypted,
+      ...connectionWithoutCiphertext
+    } = connectionDoc;
+
+    if (!passwordEncrypted) {
+      throw new Error(
+        "Saved connection credentials are unavailable."
+      );
+    }
+
+    // Decrypt using the shared encryption utility.
+    const plainPassword = decryptPassword(passwordEncrypted);
+
+    // Pass only the required connection details to the connector.
+    // Do not include passwordEncrypted.
+
     const connectionDetails = {
-      ...connectionDoc,
-      password: plainPassword,
+      ...connectionWithoutCiphertext,
+      password: plainPassword
     };
 
-    // ── Step 3: Validate the query (shared validator) ───────
+    // ======================================
+    // Step 3: Validate Query
+    // ======================================
+
     const validation = validateQuerySafety({
-      kind:        queryDoc.kind,
-      queryText:   queryDoc.queryText,
-      entity:      queryDoc.entity,
-      filter:      queryDoc.filter,
-      select:      queryDoc.select,
-      params:      queryDoc.params,
-      execApproved: queryDoc.execApproved,
+      kind: queryDoc.kind,
+      queryText: queryDoc.queryText,
+      entity: queryDoc.entity,
+      filter: queryDoc.filter,
+      select: queryDoc.select,
+      params: queryDoc.params,
+      execApproved: queryDoc.execApproved
     });
 
     if (!validation.valid) {
-      throw new Error(`Query blocked: ${validation.error}`);
+      throw new Error(
+        `Query blocked: ${validation.error}`
+      );
     }
 
-    // ── Step 4: Merge runtime params with saved defaults ────────────────────
-    const mergedParams = mergeParams(queryDoc.params, runtimeParams);
+    // ======================================
+    // Step 4: Merge Query Parameters
+    // ======================================
 
-    // ── Step 5: Apply row limit ──────────────────────────────────────────────
-    // options.limit overrides query's rowLimit (Test Query uses 10)
-    const effectiveLimit = options.limit !== undefined
-      ? options.limit
-      : (queryDoc.rowLimit || parseInt(process.env.MAX_ROW_LIMIT) || 1000);
+    const mergedParams = mergeParams(
+      queryDoc.params,
+      runtimeParams
+    );
 
-    // ── Step 6: Pick connector and execute ───────────────────────────────────
+    // ======================================
+    // Step 5: Apply Row Limit
+    // ======================================
+
+    // Runtime limit overrides the query's configured limit.
+
+    const effectiveLimit =
+      options.limit !== undefined
+        ? options.limit
+        : (
+            queryDoc.rowLimit ||
+            parseInt(process.env.MAX_ROW_LIMIT, 10) ||
+            1000
+          );
+
+    // ======================================
+    // Step 6: Select Connector
+    // ======================================
+
     const connector = getConnector(connectionDoc.type);
+
+    // ======================================
+    // Step 7: Execute Query
+    // ======================================
+
     const raw = await connector.executeQuery(
       connectionDetails,
       queryDoc,
       mergedParams,
-      { limit: effectiveLimit }
+      {
+        limit: effectiveLimit
+      }
     );
 
-    // ── Step 7: Format into the common shape ─────────────────────────────────
-    const sourceName = SOURCE_NAMES[connectionDoc.type] || connectionDoc.type;
-    const formatted = formatResult(raw, sourceName, queryDoc.columnMapping || {});
+    // ======================================
+    // Step 8: Format Query Result
+    // ======================================
+
+    const sourceName =
+      SOURCE_NAMES[connectionDoc.type] ||
+      connectionDoc.type;
+
+    const formatted = formatResult(
+      raw,
+      sourceName,
+      queryDoc.columnMapping || {}
+    );
 
     return formatted;
 
-  } catch (err) {
-    // Sanitise before returning — no passwords or hostnames leak (FR-18)
-    const safe = sanitizeError(err);
-    throw new Error(safe.message);
+  } catch (error) {
+    // ======================================
+    // Error Handling
+    // ======================================
+
+    // Sanitize errors before returning them.
+    // Do not expose passwords or sensitive connection details.
+
+    const safeError = sanitizeError(error);
+
+    throw new Error(safeError.message);
   }
 }
 
-module.exports = { executeQuery, mergeParams };
+// ======================================
+// Exports
+// ======================================
 
+module.exports = {
+  executeQuery,
+  mergeParams
+};

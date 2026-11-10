@@ -1,6 +1,7 @@
 const Query = require("../models/Query");
 const { validateQuerySafety } = require("../security/validator");
 const { executeQuery } = require("../core/executeQuery");
+const { toMappingArray } = require("../core/fieldMapping");
 
 // Business logic service for saved queries.
 // Ref: Story 5.1 (CRUD), Story 5.2 (Test Queries & Previews), and safety rule BR-03.
@@ -73,7 +74,7 @@ async function createQuery(queryData, username = "admin") {
     filter: filter ? filter.trim() : "",
     select: select ? select.trim() : "",
     params: params || [],
-    columnMapping: columnMapping || [],
+    columnMapping: columnMapping ? toMappingArray(columnMapping) : [],
     rowLimit: rowLimit ? Number(rowLimit) : 1000,
     execApproved: Boolean(execApproved),
     createdBy: username
@@ -165,7 +166,7 @@ async function updateQuery(queryId, updateData) {
   if (updateData.filter !== undefined) existing.filter = updateData.filter.trim();
   if (updateData.select !== undefined) existing.select = updateData.select.trim();
   if (updateData.params !== undefined) existing.params = updateData.params;
-  if (updateData.columnMapping !== undefined) existing.columnMapping = updateData.columnMapping;
+  if (updateData.columnMapping !== undefined) existing.columnMapping = toMappingArray(updateData.columnMapping);
   if (updateData.rowLimit !== undefined) existing.rowLimit = Number(updateData.rowLimit);
   if (updateData.execApproved !== undefined) existing.execApproved = Boolean(updateData.execApproved);
 

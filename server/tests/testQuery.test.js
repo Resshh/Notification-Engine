@@ -14,7 +14,9 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
   let mockServiceLayerConnection;
 
   beforeAll(() => {
-    process.env.ENCRYPTION_KEY = "597001adc930d4a1750761523a49cd1ebbb2cce786e481718e7c242e1abb87a3";
+    process.env.ENCRYPTION_KEY =
+      "597001adc930d4a1750761523a49cd1ebbb2cce786e481718e7c242e1abb87a3";
+
     const encryptedPass = encryptPassword("SecretPass123!");
 
     mockHanaConnection = {
@@ -54,15 +56,26 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
 
-    // Mock Connection.findById to resolve connection documents
+    // Mock Connection.findById to resolve connection documents.
+    // Supports Mongoose's .select().lean() query chaining.
     jest.spyOn(Connection, "findById").mockImplementation((id) => {
       const idStr = String(id);
       let match = null;
-      if (idStr === String(mockHanaConnection._id)) match = mockHanaConnection;
-      if (idStr === String(mockSqlConnection._id)) match = mockSqlConnection;
-      if (idStr === String(mockServiceLayerConnection._id)) match = mockServiceLayerConnection;
+
+      if (idStr === String(mockHanaConnection._id)) {
+        match = mockHanaConnection;
+      }
+
+      if (idStr === String(mockSqlConnection._id)) {
+        match = mockSqlConnection;
+      }
+
+      if (idStr === String(mockServiceLayerConnection._id)) {
+        match = mockServiceLayerConnection;
+      }
 
       return {
+        select: jest.fn().mockReturnThis(),
         lean: () => Promise.resolve(match ? { ...match } : null)
       };
     });
@@ -71,6 +84,7 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
   // =========================================================================
   // Sub-task 142 & FR-11: Preview Limit (Maximum 10 rows in common format)
   // =========================================================================
+
   describe("Sub-task 142: Preview Row Limit (FR-11)", () => {
     test("returns at most 10 rows even when dataset contains more records", async () => {
       const mockQuery = {
@@ -96,6 +110,13 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
       expect(result.meta).toBeDefined();
       expect(result.meta.source).toBe("HANA");
       expect(result.meta.rowCount).toBe(result.rows.length);
+
+      // Regression check: encrypted credentials must be explicitly selected.
+      const connectionQuery = Connection.findById.mock.results[0].value;
+
+      expect(connectionQuery.select).toHaveBeenCalledWith(
+        "+passwordEncrypted"
+      );
     });
 
     test("throws 404 error if queryId does not exist", async () => {
@@ -103,13 +124,16 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
         lean: () => Promise.resolve(null)
       });
 
-      await expect(testQuery("672000000000000000000099")).rejects.toThrow(/not found/i);
+      await expect(
+        testQuery("672000000000000000000099")
+      ).rejects.toThrow(/not found/i);
     });
   });
 
   // =========================================================================
   // Sub-task 143: Test Parameter Values
   // =========================================================================
+
   describe("Sub-task 143: Test Parameter Values", () => {
     test("merges runtime test parameters into query execution", async () => {
       const mockQuery = {
@@ -117,8 +141,14 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
         name: "Invoices Filtered by Date",
         connectionId: mockSqlConnection._id,
         kind: "sql",
-        queryText: "SELECT InvoiceNo, CustomerName, DueDate, Amount FROM Invoices WHERE DueDate < @asOfDate",
-        params: [{ name: "@asOfDate", defaultValue: "2026-10-01" }],
+        queryText:
+          "SELECT InvoiceNo, CustomerName, DueDate, Amount FROM Invoices WHERE DueDate < @asOfDate",
+        params: [
+          {
+            name: "@asOfDate",
+            defaultValue: "2026-10-01"
+          }
+        ],
         rowLimit: 500
       };
 
@@ -126,8 +156,14 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
         lean: () => Promise.resolve(mockQuery)
       });
 
-      const runtimeParams = { "@asOfDate": "2026-10-15" };
-      const result = await testQuery(mockQuery._id, runtimeParams);
+      const runtimeParams = {
+        "@asOfDate": "2026-10-15"
+      };
+
+      const result = await testQuery(
+        mockQuery._id,
+        runtimeParams
+      );
 
       expect(result).toBeDefined();
       expect(result.columns).toContain("InvoiceNo");
@@ -139,6 +175,7 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
   // =========================================================================
   // Sub-task 145: Display Query Errors Clearly
   // =========================================================================
+
   describe("Sub-task 145: Query Error Handling and Sanitization", () => {
     test("rejects unsafe queries before execution and reports clear message", async () => {
       const unsafeQuery = {
@@ -155,7 +192,9 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
         lean: () => Promise.resolve(unsafeQuery)
       });
 
-      await expect(testQuery(unsafeQuery._id)).rejects.toThrow(/Query blocked/i);
+      await expect(
+        testQuery(unsafeQuery._id)
+      ).rejects.toThrow(/Query blocked/i);
     });
 
     test("transient query test rejects dangerous SQL injection attempts", async () => {
@@ -166,13 +205,16 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
         queryText: "SELECT * FROM Invoices; DROP TABLE Invoices;"
       };
 
-      await expect(testQueryTransient(dangerousData)).rejects.toThrow(/disallowed operation|DROP|Query blocked/i);
+      await expect(
+        testQueryTransient(dangerousData)
+      ).rejects.toThrow(/disallowed operation|DROP|Query blocked/i);
     });
   });
 
   // =========================================================================
   // Sub-task 146: Preview Across All Three Connectors
   // =========================================================================
+
   describe("Sub-task 146: Previews for SQL Server, HANA, and Service Layer", () => {
     test("previews SQL Server query results (capped at 10 rows)", async () => {
       const sqlQuery = {
@@ -180,7 +222,8 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
         name: "SQL Server Invoice Test",
         connectionId: mockSqlConnection._id,
         kind: "sql",
-        queryText: "SELECT InvoiceNo, CustomerName, Amount FROM Invoices",
+        queryText:
+          "SELECT InvoiceNo, CustomerName, Amount FROM Invoices",
         params: []
       };
 
@@ -189,7 +232,15 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
       });
 
       const result = await testQuery(sqlQuery._id);
-      expect(result.columns).toEqual(expect.arrayContaining(["InvoiceNo", "CustomerName", "Amount"]));
+
+      expect(result.columns).toEqual(
+        expect.arrayContaining([
+          "InvoiceNo",
+          "CustomerName",
+          "Amount"
+        ])
+      );
+
       expect(result.rows.length).toBeLessThanOrEqual(10);
       expect(result.meta.source).toBe("SQLServer");
     });
@@ -200,7 +251,8 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
         name: "SAP HANA Sales Summary Test",
         connectionId: mockHanaConnection._id,
         kind: "sql",
-        queryText: 'SELECT "Date", "Branch", "TotalSales" FROM "SALESSUMMARY"',
+        queryText:
+          'SELECT "Date", "Branch", "TotalSales" FROM "SALESSUMMARY"',
         params: []
       };
 
@@ -209,7 +261,15 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
       });
 
       const result = await testQuery(hanaQuery._id);
-      expect(result.columns).toEqual(expect.arrayContaining(["Date", "Branch", "TotalSales"]));
+
+      expect(result.columns).toEqual(
+        expect.arrayContaining([
+          "Date",
+          "Branch",
+          "TotalSales"
+        ])
+      );
+
       expect(result.rows.length).toBeLessThanOrEqual(10);
       expect(result.meta.source).toBe("HANA");
     });
@@ -230,7 +290,15 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
       });
 
       const result = await testQuery(serviceLayerQuery._id);
-      expect(result.columns).toEqual(expect.arrayContaining(["InvoiceNo", "CustomerName", "Amount"]));
+
+      expect(result.columns).toEqual(
+        expect.arrayContaining([
+          "InvoiceNo",
+          "CustomerName",
+          "Amount"
+        ])
+      );
+
       expect(result.rows.length).toBeLessThanOrEqual(10);
       expect(result.meta.source).toBe("ServiceLayer");
     });
@@ -239,14 +307,41 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
       const transientFormInput = {
         connectionId: mockHanaConnection._id,
         kind: "sql",
-        queryText: 'SELECT "ItemCode", "ItemName", "QtyAvailable" FROM "ITEMS"',
+        queryText:
+          'SELECT "ItemCode", "ItemName", "QtyAvailable" FROM "ITEMS"',
         params: []
       };
 
       const result = await testQueryTransient(transientFormInput);
-      expect(result.columns).toEqual(expect.arrayContaining(["ItemCode", "ItemName", "QtyAvailable"]));
+
+      expect(result.columns).toEqual(
+        expect.arrayContaining([
+          "ItemCode",
+          "ItemName",
+          "QtyAvailable"
+        ])
+      );
+
       expect(result.rows.length).toBeLessThanOrEqual(10);
       expect(result.meta.source).toBe("HANA");
+    });
+
+    test("applies columnMapping during query preview", async () => {
+      const queryWithMapping = {
+        connectionId: mockSqlConnection._id,
+        kind: "sql",
+        queryText: "SELECT InvoiceNo, CustomerName, Amount FROM Invoices",
+        params: [],
+        columnMapping: [
+          { source: "InvoiceNo", common: "BillNumber" },
+          { source: "CustomerName", common: "ClientName" }
+        ]
+      };
+
+      const result = await testQueryTransient(queryWithMapping);
+      expect(result.columns).toEqual(["BillNumber", "ClientName", "Amount"]);
+      expect(result.rows.length).toBeLessThanOrEqual(10);
+      expect(result.meta.source).toBe("SQLServer");
     });
   });
 });

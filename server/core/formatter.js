@@ -12,17 +12,19 @@
  *  - meta always includes source and rowCount.
  */
 
+const { applyFieldMapping } = require("./fieldMapping");
+
 /**
  * Applies column mapping to rename raw column names to common-format names.
- * columnMapping is stored per query: { "RawColName": "CommonColName", ... }
+ * Delegates to the fieldMapping utility (Story 5.5).
+ * Supports both dictionary objects { RawCol: CommonCol } and arrays [{ source, common }].
  *
- * @param {string[]} columns      - Raw column names from the connector
- * @param {object}   columnMapping - Map of rawName → commonName
+ * @param {string[]} columns - Raw column names from the connector
+ * @param {object|Array} columnMapping - Mapping definition
  * @returns {string[]} Renamed column array
  */
 function applyColumnMapping(columns, columnMapping) {
-  if (!columnMapping || typeof columnMapping !== "object") return columns;
-  return columns.map((col) => columnMapping[col] || col);
+  return applyFieldMapping(columns, columnMapping);
 }
 
 /**
@@ -103,6 +105,7 @@ function isValidRaw(raw) {
 module.exports = {
   formatResult,
   applyColumnMapping,
+  applyFieldMapping,
   isValidRaw,
 };
 
