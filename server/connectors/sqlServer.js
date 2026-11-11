@@ -171,15 +171,6 @@ async function testReal(c) {
   }
 }
 
-const mock = require("./sqlServerMock");
-
-module.exports = {
-  connect,
-  execute,
-  close,
-  testConnection,
-  executeQuery: mock.executeQuery,
-};
 async function closeAll() {
   await Promise.all([...pools.values()].map((p) => p.close().catch(() => {})));
   pools.clear();
