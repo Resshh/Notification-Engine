@@ -77,6 +77,9 @@ describe("Story 5.6 - Create Five Sample Saved Queries", () => {
         if (String(conn._id) === idStr) match = conn;
       }
       return {
+        select: () => ({
+          lean: () => Promise.resolve(match ? { ...match } : null)
+        }),
         lean: () => Promise.resolve(match ? { ...match } : null)
       };
     });
