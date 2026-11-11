@@ -10,6 +10,11 @@ const {
   deleteConnection
 } = require("../controllers/connectionController");
 
+const {
+  testConnectionTransient,
+  testConnectionById
+} = require("../controllers/connectionTestController");
+
 const router = express.Router();
 
 // ======================================
@@ -20,14 +25,26 @@ const router = express.Router();
 router.use(adminOnly);
 
 // ======================================
-// Story 1.1 — Create Connection
+// Story 1.1 - Create Connection
 // ======================================
 
 // POST /api/connections
 router.post("/", createConnection);
 
 // ======================================
-// Story 1.2 — View Connections
+// Story 1.3 - Test Connection
+// ======================================
+
+// POST /api/connections/test
+// Test connection details before saving.
+router.post("/test", testConnectionTransient);
+
+// POST /api/connections/:id/test
+// Test an existing saved connection.
+router.post("/:id/test", testConnectionById);
+
+// ======================================
+// Story 1.2 - View Connections
 // ======================================
 
 // GET /api/connections
@@ -39,7 +56,7 @@ router.get("/", getConnections);
 router.get("/:id", getConnectionById);
 
 // ======================================
-// Story 1.2 — Update Connection
+// Story 1.2 - Update Connection
 // ======================================
 
 // PUT /api/connections/:id
@@ -49,7 +66,7 @@ router.put("/:id", updateConnection);
 router.patch("/:id", updateConnection);
 
 // ======================================
-// Story 1.2 — Delete Connection
+// Story 1.2 - Delete Connection
 // ======================================
 
 // DELETE /api/connections/:id

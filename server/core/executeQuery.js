@@ -27,19 +27,20 @@ function getConnector(type) {
   const connectorMap = {
     "HANA":          () => require("../connectors/hana"),
     "SAP HANA":      () => require("../connectors/hana"),
-    "SQLServer":     () => require("../connectors/sqlserver"),
-    "SQL Server":    () => require("../connectors/sqlserver"),
+    "SQLServer":     () => require("../connectors/sqlServer"),
+    "SQL Server":    () => require("../connectors/sqlServer"),
     "ServiceLayer":  () => require("../connectors/serviceLayerClient"),
     "Service Layer": () => require("../connectors/serviceLayerClient"),
   };
 
   const loader = connectorMap[type];
+
   if (!loader) {
     throw new Error(`Unknown connection type: '${type}'.`);
   }
+
   return loader();
 }
-
 // ── Source name used in meta ──────────────────────────────────────────────────
 const SOURCE_NAMES = {
   "HANA":          "HANA",
