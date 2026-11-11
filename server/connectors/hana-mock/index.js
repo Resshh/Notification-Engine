@@ -1,6 +1,6 @@
 /**
  * HANA Mock Engine — in-memory HANA-style SQL using pure JavaScript (alasql)
- * Story 3.1, sub-tasks #79–#82 | Sprint 1
+ * Story 3.1, sub-tasks #79–#82 | Owner: Swarnalakshmi Perumal | Sprint 1
  *
  * Simulates SAP HANA SQL behaviour so the app works without a real HANA instance.
  * Built using alasql (100% pure JavaScript - zero C++ compiler / python requirements).

@@ -1,6 +1,6 @@
 /**
  * runQuery — Public interface for Batch 1
- * Story 6.2 | Sprint 1
+ * Story 6.2 | Owner: Swarnalakshmi Perumal | Sprint 1
  * Ref: FR-17, sub-tasks #183, #187
  *
  * This is the ONE function Batch 1 calls to get data.

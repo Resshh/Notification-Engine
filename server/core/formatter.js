@@ -1,94 +1,190 @@
 /**
  * Common Data Formatter
- * Story 6.1 | Sprint 1
+ *
+ * Story 6.1 | Owner: Swarnalakshmi Perumal | Sprint 1
  * Ref: FR-17, sub-tasks #177, #178, #179, #180
  *
  * Takes raw { columns, rows } from any connector and returns
- * the agreed common format { columns, rows, meta } that Batch 1 consumes.
+ * the agreed common format { columns, rows, meta }.
  *
- * Rules (from backlog):
- *  - Mapping is applied ONCE, here, and nowhere else.
- *  - Every connector returns raw { columns, rows } — formatting happens here.
- *  - meta always includes source and rowCount.
+ * Rules:
+ * - Column mapping is applied ONCE, inside this formatter.
+ * - Connectors return raw { columns, rows }.
+ * - meta always includes source and rowCount.
+ *
+ * Supports:
+ * - SQL Server
+ * - SAP HANA
+ * - SAP Business One Service Layer
  */
 
 const { applyFieldMapping } = require("./fieldMapping");
 
+// ============================================================
+// APPLY COLUMN MAPPING
+// ============================================================
+
 /**
- * Applies column mapping to rename raw column names to common-format names.
- * Delegates to the fieldMapping utility (Story 5.5).
- * Supports both dictionary objects { RawCol: CommonCol } and arrays [{ source, common }].
+ * Applies column mapping to rename raw column names.
  *
- * @param {string[]} columns - Raw column names from the connector
- * @param {object|Array} columnMapping - Mapping definition
- * @returns {string[]} Renamed column array
+ * Uses the shared fieldMapping utility (Story 5.5).
+ *
+ * Supported formats:
+ *
+ * 1. Array of objects:
+ *    [{ source: "DocNum", common: "InvoiceNo" }]
+ *
+ * 2. Plain object:
+ *    { DocNum: "InvoiceNo" }
+ *
+ * 3. Array of pairs:
+ *    [["DocNum", "InvoiceNo"]]
+ *
+ * 4. JavaScript Map:
+ *    new Map([["DocNum", "InvoiceNo"]])
+ *
+ * @param {string[]} columns
+ * @param {Array|object|Map|null} columnMapping
+ * @returns {string[]}
  */
 function applyColumnMapping(columns, columnMapping) {
   return applyFieldMapping(columns, columnMapping);
 }
 
+// ============================================================
+// FORMAT CONNECTOR RESULTS
+// ============================================================
+
 /**
  * Formats raw connector output into the agreed common shape.
  *
- * @param {object} raw            - Raw result from connector: { columns, rows }
- * @param {string} source         - Connector name: "SQLServer" | "HANA" | "ServiceLayer"
- * @param {object} [columnMapping] - Optional column rename map from the saved query
- * @returns {{ columns: string[], rows: any[][], meta: { source: string, rowCount: number } }}
+ * @param {object} raw
+ * @param {string} source
+ * @param {Array|object|Map|null} [columnMapping]
+ *
+ * @returns {{
+ *   columns: string[],
+ *   rows: any[][],
+ *   meta: {
+ *     source: string,
+ *     rowCount: number
+ *   }
+ * }}
  *
  * @example
+ *
  * const result = formatResult(
- *   { columns: ["InvoiceNo", "Amount"], rows: [["INV-001", 5000]] },
- *   "HANA",
- *   { "Amount": "TotalAmount" }
+ *   {
+ *     columns: ["DocNum", "CardName", "DocTotal"],
+ *     rows: [["INV-001", "ABC Traders", 5000]]
+ *   },
+ *   "SQLServer",
+ *   [
+ *     { source: "DocNum", common: "InvoiceNo" },
+ *     { source: "CardName", common: "CustomerName" },
+ *     { source: "DocTotal", common: "Amount" }
+ *   ]
  * );
- * // → { columns: ["InvoiceNo", "TotalAmount"], rows: [["INV-001", 5000]], meta: { source: "HANA", rowCount: 1 } }
+ *
+ * Output:
+ * {
+ *   columns: ["InvoiceNo", "CustomerName", "Amount"],
+ *   rows: [["INV-001", "ABC Traders", 5000]],
+ *   meta: {
+ *     source: "SQLServer",
+ *     rowCount: 1
+ *   }
+ * }
  */
 function formatResult(raw, source, columnMapping = {}) {
-  // ── Input validation ──────────────────────────────────────────────────────
+  // ==========================================================
+  // INPUT VALIDATION
+  // ==========================================================
+
   if (!raw || typeof raw !== "object") {
-    throw new Error("Formatter: raw result must be an object.");
+    throw new Error(
+      "Formatter: raw result must be an object."
+    );
   }
 
   if (!Array.isArray(raw.columns)) {
-    throw new Error("Formatter: raw.columns must be an array.");
+    throw new Error(
+      "Formatter: raw.columns must be an array."
+    );
   }
 
   if (!Array.isArray(raw.rows)) {
-    throw new Error("Formatter: raw.rows must be an array.");
+    throw new Error(
+      "Formatter: raw.rows must be an array."
+    );
   }
 
   if (!source || typeof source !== "string") {
-    throw new Error("Formatter: source name is required.");
+    throw new Error(
+      "Formatter: source name is required."
+    );
   }
 
-  // ── Apply column mapping once ─────────────────────────────────────────────
-  const mappedColumns = applyColumnMapping(raw.columns, columnMapping);
+  // ==========================================================
+  // APPLY COLUMN MAPPING ONCE
+  // ==========================================================
 
-  // ── Ensure all rows have the same number of values as columns ─────────────
+  const mappedColumns = applyColumnMapping(
+    raw.columns,
+    columnMapping
+  );
+
+  // ==========================================================
+  // NORMALIZE ROW STRUCTURE
+  // ==========================================================
+
   const numCols = mappedColumns.length;
+
   const safeRows = raw.rows.map((row) => {
-    if (!Array.isArray(row)) return new Array(numCols).fill(null);
-    // Pad or trim to match column count
-    if (row.length === numCols) return row;
+    // Replace invalid rows with null values.
+    if (!Array.isArray(row)) {
+      return new Array(numCols).fill(null);
+    }
+
+    // Keep rows that already match the column count.
+    if (row.length === numCols) {
+      return row;
+    }
+
+    // Pad or trim rows to match the column count.
     const adjusted = [...row];
-    while (adjusted.length < numCols) adjusted.push(null);
+
+    while (adjusted.length < numCols) {
+      adjusted.push(null);
+    }
+
     return adjusted.slice(0, numCols);
   });
 
-  // ── Build and return the common format ────────────────────────────────────
+  // ==========================================================
+  // RETURN COMMON FORMAT
+  // ==========================================================
+
   return {
     columns: mappedColumns,
-    rows:    safeRows,
+
+    rows: safeRows,
+
     meta: {
-      source:   source,
-      rowCount: safeRows.length,
-    },
+      source: source,
+      rowCount: safeRows.length
+    }
   };
 }
 
+// ============================================================
+// VALIDATE RAW CONNECTOR RESULTS
+// ============================================================
+
 /**
  * Checks whether a value is a valid raw connector result.
- * Used by runQuery and buildReport to validate inputs early.
+ *
+ * Used by runQuery and buildReport.
  *
  * @param {any} raw
  * @returns {boolean}
@@ -102,10 +198,12 @@ function isValidRaw(raw) {
   );
 }
 
+// ============================================================
+// EXPORTS
+// ============================================================
+
 module.exports = {
   formatResult,
   applyColumnMapping,
-  applyFieldMapping,
-  isValidRaw,
+  isValidRaw
 };
-

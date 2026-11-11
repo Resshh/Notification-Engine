@@ -1,4 +1,4 @@
-﻿const express = require("express");
+const express = require("express");
 const cors = require("cors");
 
 // ======================================
@@ -7,6 +7,7 @@ const cors = require("cors");
 
 const connectionRoutes = require("./routes/connectionRoutes");
 const queryRoutes = require("./routes/queryRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 // ======================================
 // Middleware Imports
@@ -61,6 +62,13 @@ app.use("/api/query-preview", queryRoutes);
 
 // Stories 1.1 and 1.4
 app.use("/api/connections", connectionRoutes);
+
+// ======================================
+// Batch 2 - Report Generation Routes
+// ======================================
+
+// Stories 6.3, 6.4, 6.5 - Swarnalakshmi's module
+app.use("/api/reports", reportRoutes);
 
 // ======================================
 // Central Error Handler
