@@ -1,35 +1,32 @@
-import { NavLink, Route, Routes } from 'react-router-dom'
-import Login from './pages/Login.jsx'
-import Jobs from './pages/Jobs.jsx'
-import JobSetup from './pages/JobSetup.jsx'
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import QuerySetup from './pages/QuerySetup'
 import RecipientList from './pages/RecipientList.jsx'
-import Templates from './pages/Templates.jsx'
-import RunHistory from './pages/RunHistory.jsx'
+import './styles.css'
 
 export default function App() {
   return (
-    <div className="layout">
-      <header>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand-mark">N</div>
         <strong>Notification Engine</strong>
-        {/* TEST MODE badge and signed-in user go here (FR-14, FR-01) */}
+        <span className="batch-label">BATCH 2 – DATA CONNECTORS</span>
       </header>
-      <nav>
-        <NavLink to="/" end>Job Dashboard</NavLink>
-        <NavLink to="/RecipientList">Recipient Lists</NavLink>
-        <NavLink to="/templates">Templates</NavLink>
-        <NavLink to="/history">Run History</NavLink>
-      </nav>
-      <main>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Jobs />} />
-          <Route path="/jobs/new" element={<JobSetup />} />
-          <Route path="/jobs/:id" element={<JobSetup />} />
-          <Route path="/recipientslist" element={<RecipientList />} />
-          <Route path="/templates" element={<Templates />} />
-          <Route path="/history" element={<RunHistory />} />
-        </Routes>
-      </main>
+      <div className="workspace">
+        <aside className="sidebar">
+          <p className="nav-caption">WORKSPACE</p>
+          <NavLink className="nav-item" to="/queries">Queries</NavLink>
+          <NavLink className="nav-item" to="/recipient-lists">Recipient Lists</NavLink>
+        </aside>
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<Navigate to="/queries" replace />} />
+            <Route path="/queries" element={<QuerySetup />} />
+            <Route path="/recipient-lists" element={<RecipientList />} />
+            <Route path="/recipientslist" element={<Navigate to="/recipient-lists" replace />} />
+            <Route path="*" element={<Navigate to="/queries" replace />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   )
 }
