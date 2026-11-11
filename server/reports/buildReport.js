@@ -1,6 +1,6 @@
 /**
  * buildReport — Report generation entry point
- * Story 6.3 & 6.4 | Sprint 1 & 2
+ * Story 6.3 & 6.4 | Owner: Swarnalakshmi Perumal | Sprint 1 & 2
  * Ref: FR-19, sub-tasks #193, #198
  *
  * Usage (from Batch 1 / notification engine):
@@ -19,7 +19,7 @@ const fs     = require("fs");
 const { writeCsv }   = require("./csvBuilder");
 const { writeExcel } = require("./excelBuilder");
 
-// Reports are written to server/reports/output/ — this folder is git-ignored
+// Reports are written to backend/reports/output/ — this folder is git-ignored
 const OUTPUT_DIR = path.resolve(__dirname, "output");
 
 // Ensure output directory exists on startup
