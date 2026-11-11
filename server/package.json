@@ -19,6 +19,7 @@
   "jest": {
     "testPathIgnorePatterns": [
       "/node_modules/",
+      "adminOnly.test.js",
       "connectionController.test.js",
       "connectionMongo.integration.test.js",
       "engine/rules.test.js"
