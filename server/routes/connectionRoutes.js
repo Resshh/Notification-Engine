@@ -1,5 +1,6 @@
 const express = require("express");
 
+const authMiddleware = require("../middleware/auth");
 const adminOnly = require("../middleware/adminOnly");
 
 const {
@@ -7,17 +8,29 @@ const {
   getConnections,
   getConnectionById,
   updateConnection,
-  deleteConnection
+  deleteConnection,
+  testConnectionController
 } = require("../controllers/connectionController");
 
 const router = express.Router();
 
 // ======================================
-// Administrator Authorization
+// Authentication & Administrator Authorization
 // ======================================
 
-// Protect all connection management endpoints.
+// Ensure req.user is set (dev stub if unauthenticated) then check admin role
+router.use(authMiddleware);
 router.use(adminOnly);
+
+// ======================================
+// Story 1.3 — Test Connection
+// ======================================
+
+// POST /api/connections/test (test unsaved form details)
+router.post("/test", testConnectionController);
+
+// POST /api/connections/:id/test (test saved connection)
+router.post("/:id/test", testConnectionController);
 
 // ======================================
 // Story 1.1 — Create Connection
