@@ -1,84 +1,65 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
-
-// ======================================
-// Route Imports
-// ======================================
+const mongoose = require("mongoose");
 
 const connectionRoutes = require("./routes/connectionRoutes");
 const queryRoutes = require("./routes/queryRoutes");
 const reportRoutes = require("./routes/reportRoutes");
-
-// ======================================
-// Middleware Imports
-// ======================================
-
+const authRoutes = require("./routes/auth");
+const recipientListRoutes = require("./routes/recipientList");
 const errorHandler = require("./middleware/errorHandler");
 
-// ======================================
-// Express Application
-// ======================================
-
 const app = express();
-
-// ======================================
-// Global Middleware
-// ======================================
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ======================================
-// Root Endpoint
-// ======================================
-
 app.get("/", (req, res) => {
   res.send("Server running");
 });
 
-// ======================================
-// Health Check API
-// ======================================
-
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "Notification Engine API is running"
+    status: "ok",
+    message: "Notification Engine API is running",
+    testMode: process.env.TEST_MODE === "true"
   });
 });
 
-// ======================================
-// Batch 2 - Query Management Routes
-// ======================================
-
-// Stories 5.1, 5.2 and 5.4
+app.use("/api/auth", authRoutes);
+app.use("/api/recipient-lists", recipientListRoutes);
 app.use("/api/queries", queryRoutes);
 app.use("/api/query-preview", queryRoutes);
-
-// ======================================
-// Batch 2 - Connection Management Routes
-// ======================================
-
-// Stories 1.1 and 1.4
 app.use("/api/connections", connectionRoutes);
-
-// ======================================
-// Batch 2 - Report Generation Routes
-// ======================================
-
-// Stories 6.3, 6.4, 6.5 - Swarnalakshmi's module
 app.use("/api/reports", reportRoutes);
 
-// ======================================
-// Central Error Handler
-// ======================================
+app.use((err, req, res, next) => {
+  if (err.status && !err.statusCode) err.statusCode = err.status;
+  errorHandler(err, req, res, next);
+});
 
-// Must be registered after all application routes.
-app.use(errorHandler);
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
 
-// ======================================
-// Export Express Application
-// ======================================
+  if (!process.env.MONGO_URI) {
+    console.error("MONGO_URI is not configured");
+    process.exit(1);
+  }
+
+  mongoose.connect(process.env.MONGO_URI)
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("MongoDB connection failed:", err);
+      process.exit(1);
+    });
+}
 
 module.exports = app;
