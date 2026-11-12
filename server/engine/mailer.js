@@ -1,50 +1,39 @@
-// Mailer for Notification Engine — T02
-// Test mode routes every message only to TEST_EMAIL (FR-14, BR-07).
-
+// The only place emails leave the system (FR-14, BR-07).
+// TEST_MODE=true: every email goes to TEST_EMAIL only, CC/BCC dropped. No screen or job can bypass this.
 const nodemailer = require('nodemailer');
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: Number(process.env.SMTP_PORT) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-async function sendMail({ to, cc, bcc, subject, html, attachments = [] }) {
-  const testMode = String(process.env.TEST_MODE).toLowerCase() === 'true';
-
-  if (testMode && !process.env.TEST_EMAIL) {
-    throw new Error('TEST_EMAIL must be set when TEST_MODE=true');
+let transport;
+function getTransport() {
+  if (!transport) {
+    transport = process.env.SMTP_USER
+      ? nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 587,
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        connectionTimeout: 10000,
+      })
+      // No SMTP account in .env: build the email but send nothing (handy offline).
+      : nodemailer.createTransport({ jsonTransport: true });
+    if (!process.env.SMTP_USER) console.warn('SMTP_USER not set: emails are NOT sent, only built (jsonTransport)');
   }
+  return transport;
+}
 
-  const mailOptions = {
-    from: process.env.MAIL_FROM || process.env.SMTP_USER,
-    to: testMode ? process.env.TEST_EMAIL : to,
+// Exposed so tests can see exactly who would receive the email.
+function applyTestMode({ to, cc, bcc }) {
+  if (process.env.TEST_MODE === 'false') return { to, cc, bcc };
+  return { to: process.env.TEST_EMAIL || 'team-inbox@test.com', cc: undefined, bcc: undefined };
+}
+
+async function sendMail({ to, cc, bcc, subject, html, attachments }) {
+  const addresses = applyTestMode({ to, cc, bcc });
+  return getTransport().sendMail({
+    from: process.env.MAIL_FROM || 'Notification Engine <noreply@test.com>',
+    ...addresses,
     subject,
     html,
     attachments,
-  };
-
-  if (testMode) {
-    // Test mode overrides all recipient fields.
-    mailOptions.cc = undefined;
-    mailOptions.bcc = undefined;
-  } else {
-    if (cc) mailOptions.cc = cc;
-    if (bcc) mailOptions.bcc = bcc;
-  }
-
-  const info = await transporter.sendMail(mailOptions);
-
-  return {
-    messageId: info.messageId,
-    accepted: info.accepted,
-    rejected: info.rejected,
-    previewUrl: nodemailer.getTestMessageUrl(info),
-  };
+  });
 }
 
-module.exports = { sendMail };
+module.exports = { sendMail, applyTestMode };

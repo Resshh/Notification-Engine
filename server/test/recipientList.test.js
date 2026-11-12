@@ -8,7 +8,7 @@ const express = require('express')
 process.env.JWT_SECRET = 'test-secret'
 
 const { RecipientList } = require('../models')
-const router = require('../routes/recipientList')
+const router = require('../routes/recipientLists')
 
 const app = express()
 

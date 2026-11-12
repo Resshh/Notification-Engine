@@ -1,81 +1,144 @@
 
-import { useState } from "react";
+import { useEffect, useState } from 'react'
+import { NavLink, Route, Routes, Navigate, useNavigate } from 'react-router-dom'
 
-import QuerySetup from "./pages/QuerySetup";
-import Connections from "./pages/Connections";
+import Login from './pages/Login.jsx'
+import Jobs from './pages/Jobs.jsx'
+import JobSetup from './pages/JobSetup.jsx'
+import Recipients from './pages/Recipients.jsx'
+import Templates from './pages/Templates.jsx'
+import RunHistory from './pages/RunHistory.jsx'
+import Connections from './pages/Connections.jsx'
+import QuerySetup from './pages/QuerySetup.jsx'
+import './styles.css'
 
-import "./styles.css";
+import ProtectedRoute from './components/ProtectedRoute.jsx'
+import { useAuth } from './context/AuthContext.jsx'
+import { api } from './api.js'
 
-export default function App() {
-  const [active, setActive] = useState("Connections");
+function DashboardLayout() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [testMode, setTestMode] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
-  const menu = [
-    "Job Dashboard",
-    "Recipient Lists",
-    "Templates",
-    "Run History",
-    "Connections",
-    "Query setup and testing",
-  ];
+  useEffect(() => {
+    let active = true
 
-  const renderPage = () => {
-    switch (active) {
-      case "Connections":
-        return <Connections />;
-
-      case "Query setup and testing":
-        return <QuerySetup />;
-
-      default:
-        return (
-          <section className="panel">
-            <h1>{active}</h1>
-            <p>
-              This section belongs to the shared application or
-              another team member's implementation.
-            </p>
-          </section>
-        );
+    async function loadHealth() {
+      try {
+        const response = await api('/health')
+        if (active) setTestMode(response.testMode)
+      } catch {
+        if (active) setTestMode(null)
+      }
     }
-  };
+
+    loadHealth()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  function handleLogout() {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
-    <div className="app-shell">
-      {/* Header */}
-      <header className="topbar">
-        <div className="brand-mark">N</div>
+    <div className={`layout ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
+      <header className="app-header">
+        <div className="header-brand">
+          <button
+  type="button"
+  className="menu-toggle"
+  onClick={() => setSidebarOpen((previous) => !previous)}
+  aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+  aria-expanded={sidebarOpen}
+>
+  ☰
+</button>
+          <strong>Notification Engine</strong>
+        </div>
 
-        <strong>Notification Engine</strong>
+        <div className="header-account">
+          {testMode === true && (
+            <span className="test-mode-badge">TEST MODE: ON</span>
+          )}
 
-        <span className="batch-label">
-          BATCH 2 – DATA CONNECTORS
-        </span>
+          {testMode === false && (
+            <span className="test-mode-badge test-mode-off">
+              TEST MODE: OFF
+            </span>
+          )}
+
+          <span className="account-name">
+            {user?.name || 'User'} ({user?.role || 'user'})
+          </span>
+
+          <button className="logout-button" onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
       </header>
 
-      <div className="workspace">
-        {/* Sidebar */}
-        <aside className="sidebar">
-          <p className="nav-caption">WORKSPACE</p>
+      <aside className="app-sidebar">
+        <nav className="sidebar-navigation">
+          <NavLink to="/" end>
+            Job Dashboard
+          </NavLink>
 
-          {menu.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={`nav-item ${
-                active === item ? "active" : ""
-              }`}
-              onClick={() => setActive(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </aside>
+          <NavLink to="/recipients">
+            Recipient Lists
+          </NavLink>
 
-        {/* Main Content */}
-        <main className="main-content">
-          {renderPage()}
-        </main>
-      </div>
+          <NavLink to="/templates">
+            Templates
+          </NavLink>
+
+          <NavLink to="/history">
+            Run History
+          </NavLink>
+
+          <div className="sidebar-divider" />
+
+          <NavLink to="/connections">
+            Connections
+          </NavLink>
+
+          <NavLink to="/queries">
+            Queries
+          </NavLink>
+        </nav>
+      </aside>
+
+      <main className="app-content">
+        <Routes>
+          <Route path="/" element={<Jobs />} />
+          <Route path="/jobs/new" element={<JobSetup />} />
+          <Route path="/jobs/:id" element={<JobSetup />} />
+          <Route path="/recipients" element={<Recipients />} />
+          <Route path="/templates" element={<Templates />} />
+          <Route path="/history" element={<RunHistory />} />
+          <Route path="/connections" element={<div className="batch2"><Connections /></div>} />
+          <Route path="/queries" element={<div className="batch2"><QuerySetup /></div>} />
+        </Routes>
+      </main>
     </div>
-  );
+  )
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+
+      <Route element={<ProtectedRoute />}>
+        <Route path="/*" element={<DashboardLayout />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  )
 }
