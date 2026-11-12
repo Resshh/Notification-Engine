@@ -6,24 +6,10 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-/**
- * Previews an existing saved query by ID.
- * Returns at most 10 rows in the common format.
- * Ref: Story 5.2, Sub-tasks 142, 143, FR-11.
- */
 export async function previewSavedQuery(queryId, params = {}) {
-  if (!queryId) throw new Error('Please select or save a query before previewing it.');
-  const response = await api.post(`/queries/${encodeURIComponent(queryId)}/test`, { params });
-  return response.data?.data || response.data;
-}
-
-/**
- * Previews an unsaved/transient query directly from the editor form.
- * Ref: Story 5.2.
- */
-export async function previewTransientQuery(queryData, params = {}) {
-  const response = await api.post('/queries/test', { ...queryData, params });
-  return response.data?.data || response.data;
+  if (!queryId) throw new Error('Save the query before previewing it.');
+  const response = await api.post(`/query-preview/${encodeURIComponent(queryId)}/preview`, { params });
+  return response.data;
 }
 
 export default api;
