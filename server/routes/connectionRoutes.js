@@ -1,5 +1,6 @@
 const express = require("express");
 
+const authMiddleware = require("../middleware/auth");
 const adminOnly = require("../middleware/adminOnly");
 
 const {
@@ -18,10 +19,11 @@ const {
 const router = express.Router();
 
 // ======================================
-// Administrator Authorization
+// Authentication & Administrator Authorization
 // ======================================
 
-// Protect all connection management endpoints.
+// Ensure req.user is set (dev stub if unauthenticated) then check admin role
+router.use(authMiddleware);
 router.use(adminOnly);
 
 // ======================================

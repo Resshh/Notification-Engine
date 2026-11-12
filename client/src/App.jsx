@@ -1,9 +1,19 @@
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
-import QuerySetup from './pages/QuerySetup'
-import RecipientList from './pages/RecipientList.jsx'
-import './styles.css'
+import React, { useState } from 'react';
+import QuerySetup from './pages/QuerySetup';
+import Connections from './pages/Connections';
+import './styles.css';
 
 export default function App() {
+  const [active, setActive] = useState('Connections');
+  const menu = [
+    'Job Dashboard',
+    'Recipient Lists',
+    'Templates',
+    'Run History',
+    'Connections',
+    'Query setup and testing'
+  ];
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -18,13 +28,19 @@ export default function App() {
           <NavLink className="nav-item" to="/recipient-lists">Recipient Lists</NavLink>
         </aside>
         <main className="main-content">
-          <Routes>
-            <Route path="/" element={<Navigate to="/queries" replace />} />
-            <Route path="/queries" element={<QuerySetup />} />
-            <Route path="/recipient-lists" element={<RecipientList />} />
-            <Route path="/recipientslist" element={<Navigate to="/recipient-lists" replace />} />
-            <Route path="*" element={<Navigate to="/queries" replace />} />
-          </Routes>
+          {active === 'Connections' ? (
+            <Connections />
+          ) : active === 'Query setup and testing' || active === 'Queries' ? (
+            <QuerySetup />
+          ) : (
+            <section className="panel">
+              <h1>{active}</h1>
+              <p>
+                This section belongs to the shared application or another team member's implementation.
+                It is not implemented in this Batch 2 starter.
+              </p>
+            </section>
+          )}
         </main>
       </div>
     </div>

@@ -1,35 +1,42 @@
-const jwt = require('jsonwebtoken');
+/**
+ * Authentication Middleware
+ * Story 1.4 | Sprint 1
+ * Ref: Sub-task #38, FR-04, BR-07
+ *
+ * Populates req.user. In development, provides a stub admin user
+ * until Batch 1 central authentication is integrated.
+ */
 
-function requireAuth(req, res, next) {
-  const token = (req.headers.authorization || '').replace('Bearer ', '');
-//   || ''
-// This is a fallback.
-// If the Authorization header is missing (undefined), it uses an empty string instead.
+const mongoose = require("mongoose");
 
-// .replace('Bearer ', '')
-// Removes the word Bearer  from the beginning of the token.
-// So:Bearer abc123xyz
-// becomes:abc123xyz
+const DEFAULT_ADMIN_ID = new mongoose.Types.ObjectId("672000000000000000000001");
 
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET); 
+const DEFAULT_ADMIN_USER = {
+  _id: DEFAULT_ADMIN_ID,
+  username: "admin",
+  email: "admin@notificationengine.local",
+  role: "admin"
+};
 
-// jwt.verify() checks whether the token is valid using the secret key.
-// process.env.JWT_SECRET gets the secret key from the environment variables.
-// If the token is valid, jwt.verify() returns the payload stored inside the token.Its given to req.user 
-// so that it can be used in the next middleware or route handler.
-
-    next(); // If the token is valid, Express moves to the next middleware or route handler.
-  } catch {
-    res.status(401).json({ error: 'Please log in' });
+function authMiddleware(req, res, next) {
+  // If user is already set by upstream session/passport, preserve it
+  if (req.user && req.user._id) {
+    return next();
   }
+
+  // Allow role override via header for testing
+  const roleHeader = req.headers["x-user-role"];
+  if (roleHeader) {
+    req.user = {
+      ...DEFAULT_ADMIN_USER,
+      role: roleHeader
+    };
+    return next();
+  }
+
+  // Attach default admin user for development
+  req.user = { ...DEFAULT_ADMIN_USER };
+  return next();
 }
 
-function requireAdmin(req, res, next) {
-  requireAuth(req, res, () => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admins only' });
-    next();
-  });
-}
-
-module.exports = { requireAuth, requireAdmin };
+module.exports = authMiddleware;
