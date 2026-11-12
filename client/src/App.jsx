@@ -24,15 +24,8 @@ export default function App() {
       <div className="workspace">
         <aside className="sidebar">
           <p className="nav-caption">WORKSPACE</p>
-          {menu.map((item) => (
-            <button
-              key={item}
-              className={active === item ? 'nav-item active' : 'nav-item'}
-              onClick={() => setActive(item)}
-            >
-              {item}
-            </button>
-          ))}
+          <NavLink className="nav-item" to="/queries">Queries</NavLink>
+          <NavLink className="nav-item" to="/recipient-lists">Recipient Lists</NavLink>
         </aside>
         <main className="main-content">
           {active === 'Connections' ? (
@@ -51,5 +44,5 @@ export default function App() {
         </main>
       </div>
     </div>
-  );
+  )
 }
