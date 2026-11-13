@@ -1,5 +1,6 @@
 // All database collections in one place. This file IS the shared database contract
 // (Common Guide section 7). Change a field here = tell the team in stand-up.
+const { Schema, model } = require('mongoose');
 const mongoose = require('mongoose');
 const { Schema, model } = mongoose;
 const { ObjectId } = Schema.Types;
@@ -86,6 +87,7 @@ const SentHistory = model('SentHistory', new Schema({
 
 // ---- Owned by Batch 2 (we only READ these to fill the job form dropdowns) ----
 // Minimal shape so our dropdowns work with seed data. Batch 2's real model replaces it.
+const Query = model('Query', new Schema({
 const Query = mongoose.models.Query || model('Query', new Schema({
   name: String,       // e.g. 'Overdue invoices'
   connection: String, // e.g. 'Sales SQL Server'
