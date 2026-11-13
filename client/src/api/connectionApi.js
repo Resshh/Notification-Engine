@@ -1,71 +1,96 @@
+
 /**
  * Connection Management API Client
- * Epic 1: Stories 1.1, 1.2, 1.3
+ * Stories 1.1, 1.2 and 1.3
  */
 
-import axios from 'axios';
+import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  withCredentials: true,
-  headers: { 'Content-Type': 'application/json' }
+  baseURL: "/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-/**
- * Lists all saved connections.
- * Story 1.2, Sub-task 22.
- */
+// Attach the logged-in user's JWT token.
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+// Get all saved connections
 export async function getConnections() {
-  const response = await api.get('/connections');
+  const response = await api.get("/connections");
+
   return response.data?.connections || response.data?.data || [];
 }
 
-/**
- * Gets a connection by its ID.
- * Story 1.2, Sub-task 22.
- */
+// Get one saved connection
 export async function getConnectionById(id) {
-  const response = await api.get(`/connections/${encodeURIComponent(id)}`);
-  return response.data?.connection || response.data?.data || response.data;
+  const response = await api.get(
+    `/connections/${encodeURIComponent(id)}`
+  );
+
+  return response.data?.connection ||
+         response.data?.data ||
+         response.data;
 }
 
-/**
- * Creates a new connection.
- * Story 1.1, Sub-task 11.
- */
+// Create a connection
 export async function createConnection(connectionData) {
-  const response = await api.post('/connections', connectionData);
-  return response.data?.connection || response.data?.data || response.data;
+  const response = await api.post(
+    "/connections",
+    connectionData
+  );
+
+  return response.data?.connection ||
+         response.data?.data ||
+         response.data;
 }
 
-/**
- * Updates an existing connection.
- * Story 1.2, Sub-task 23.
- */
+// Update a connection
 export async function updateConnection(id, connectionData) {
-  const response = await api.put(`/connections/${encodeURIComponent(id)}`, connectionData);
-  return response.data?.connection || response.data?.data || response.data;
+  const response = await api.put(
+    `/connections/${encodeURIComponent(id)}`,
+    connectionData
+  );
+
+  return response.data?.connection ||
+         response.data?.data ||
+         response.data;
 }
 
-/**
- * Deletes a connection.
- * Story 1.2, Sub-task 24, 25.
- */
+// Delete a connection
 export async function deleteConnection(id) {
-  const response = await api.delete(`/connections/${encodeURIComponent(id)}`);
+  const response = await api.delete(
+    `/connections/${encodeURIComponent(id)}`
+  );
+
   return response.data;
 }
 
-/**
- * Tests an unsaved connection form or a saved connection ID.
- * Story 1.3, Sub-task 33.
- */
+// Test a new or saved connection
 export async function testConnection(payload) {
+  let response;
+
   if (payload.id) {
-    const response = await api.post(`/connections/${encodeURIComponent(payload.id)}/test`, payload);
-    return response.data;
+    response = await api.post(
+      `/connections/${encodeURIComponent(payload.id)}/test`,
+      payload
+    );
+  } else {
+    response = await api.post(
+      "/connections/test",
+      payload
+    );
   }
-  const response = await api.post('/connections/test', payload);
+
   return response.data;
 }
 

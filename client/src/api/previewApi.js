@@ -1,14 +1,36 @@
-import axios from 'axios';
 
+import axios from "axios";
+
+// Use the Vite proxy to communicate with Express.
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: "/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
+// Add JWT token if one exists.
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+// Preview a saved query.
 export async function previewSavedQuery(queryId, params = {}) {
-  if (!queryId) throw new Error('Save the query before previewing it.');
-  const response = await api.post(`/query-preview/${encodeURIComponent(queryId)}/preview`, { params });
+  if (!queryId) {
+    throw new Error("Save the query before previewing it.");
+  }
+
+  const response = await api.post(
+    `/query-preview/${encodeURIComponent(queryId)}/preview`,
+    { params }
+  );
+
   return response.data;
 }
 
