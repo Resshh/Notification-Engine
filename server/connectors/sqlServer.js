@@ -402,6 +402,7 @@ async function testConnection(connectionDetails) {
   );
 }
 
+module.exports = { executeQuery, testConnection, closeAll };
 // ============================================================
 // MODULE EXPORTS
 // ============================================================

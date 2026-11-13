@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 const TYPES = ['SQL Server', 'SAP HANA', 'Service Layer'];
 

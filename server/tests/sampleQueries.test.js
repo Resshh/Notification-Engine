@@ -89,8 +89,10 @@ describe("Story 5.6 - Create Five Sample Saved Queries", () => {
       }
 
       return {
-        select: jest.fn().mockReturnThis(),
-        lean: jest.fn().mockResolvedValue(match ? { ...match } : null)
+        select: () => ({
+          lean: () => Promise.resolve(match ? { ...match } : null)
+        }),
+        lean: () => Promise.resolve(match ? { ...match } : null)
       };
     });
   });

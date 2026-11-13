@@ -9,9 +9,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start:batch1": "node app.js",
     "dev": "nodemon server.js",
     "seed": "node seed/seed.js",
     "seed:auth": "node seed.js",
+    "seed:batch1": "node seed.js",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "test:node": "node --test tests/adminOnly.test.js tests/connectionController.test.js engine/rules.test.js",

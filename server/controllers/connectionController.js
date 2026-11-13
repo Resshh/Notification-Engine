@@ -1,4 +1,4 @@
-﻿const Connection = require("../models/Connection");
+const Connection = require("../models/Connection");
 const { encryptPassword } = require("../security/crypto");
 
 // ======================================
@@ -404,6 +404,23 @@ const deleteConnection = async (req, res, next) => {
       });
     }
 
+    // Check if queries are using this connection (Story 1.2, Sub-task 25, BR-04)
+    try {
+      const mongoose = require("mongoose");
+      const Query = require("../models/Query");
+      if (mongoose.connection && mongoose.connection.readyState === 1) {
+        const attachedCount = await Query.countDocuments({ connectionId: id });
+        if (attachedCount > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Cannot delete connection: ${attachedCount} saved query(ies) are currently using it.`
+          });
+        }
+      }
+    } catch (e) {
+      // Continue if query check fails non-critically
+    }
+
     const connection = await Connection.findByIdAndDelete(id);
 
     if (!connection) {
@@ -423,6 +440,100 @@ const deleteConnection = async (req, res, next) => {
 };
 
 // ======================================
+// Story 1.3 — Test Connection
+// POST /api/connections/test
+// POST /api/connections/:id/test
+// ======================================
+
+const { testConnection: dispatchTestConnection } = require("../connectors/index");
+const { decryptPassword } = require("../security/crypto");
+
+const testConnectionController = async (req, res, next) => {
+  try {
+    if (!checkAdmin(req, res)) {
+      return;
+    }
+
+    const { id } = req.params;
+    let targetDetails;
+    let savedConnectionDoc = null;
+
+    if (id || req.body.id || req.body.connectionId) {
+      const targetId = id || req.body.id || req.body.connectionId;
+      if (!isValidId(targetId)) {
+        return res.status(400).json({
+          success: false,
+          ok: false,
+          message: "Invalid connection ID"
+        });
+      }
+
+      savedConnectionDoc = await Connection.findById(targetId).select("+passwordEncrypted");
+      if (!savedConnectionDoc) {
+        return res.status(404).json({
+          success: false,
+          ok: false,
+          message: "Connection not found"
+        });
+      }
+
+      const password = req.body.password && typeof req.body.password === "string" && req.body.password.trim()
+        ? req.body.password
+        : decryptPassword(savedConnectionDoc.passwordEncrypted);
+
+      targetDetails = {
+        name: req.body.name || savedConnectionDoc.name,
+        type: req.body.type || savedConnectionDoc.type,
+        host: req.body.host || savedConnectionDoc.host,
+        port: req.body.port ? Number(req.body.port) : savedConnectionDoc.port,
+        database: req.body.database || savedConnectionDoc.database,
+        username: req.body.username || savedConnectionDoc.username,
+        password
+      };
+    } else {
+      // Unsaved form testing
+      const { name, type, host, port, database, username, password } = req.body;
+      if (!type || !host || !database || !username) {
+        return res.status(400).json({
+          success: false,
+          ok: false,
+          message: "Missing connection details: type, host, database, and username are required."
+        });
+      }
+
+      targetDetails = {
+        name: name || "Transient Connection Test",
+        type,
+        host,
+        port: port ? Number(port) : (type === "SQLServer" ? 1433 : type === "HANA" ? 39015 : 50000),
+        database,
+        username,
+        password: password || ""
+      };
+    }
+
+    const result = await dispatchTestConnection(targetDetails);
+
+    // If testing a saved connection, store the result on the document (Sub-task 34)
+    if (savedConnectionDoc) {
+      savedConnectionDoc.lastTestStatus = result.ok ? "SUCCESS" : "FAILED";
+      savedConnectionDoc.lastTestedAt = new Date();
+      await savedConnectionDoc.save();
+    }
+
+    return res.status(200).json({
+      success: result.ok,
+      ok: result.ok,
+      message: result.message,
+      lastTestStatus: savedConnectionDoc ? savedConnectionDoc.lastTestStatus : (result.ok ? "SUCCESS" : "FAILED"),
+      lastTestedAt: savedConnectionDoc ? savedConnectionDoc.lastTestedAt : new Date()
+    });
+  } catch (error) {
+    return handleError(error, res, next);
+  }
+};
+
+// ======================================
 // Exports
 // ======================================
 
@@ -431,5 +542,6 @@ module.exports = {
   getConnections,
   getConnectionById,
   updateConnection,
-  deleteConnection
+  deleteConnection,
+  testConnectionController
 };
