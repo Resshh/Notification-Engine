@@ -1,6 +1,6 @@
 /**
  * Unit Tests — HANA Connector (mock engine)
- * Story 3.1 & 3.2 | Owner: Swarnalakshmi Perumal | Sprint 1 & 2
+ * Story 3.1 & 3.2 | Sprint 1 & 2
  * Ref: FR-05, FR-07, sub-tasks #83, #84, #86-#92, #95
  *
  * Tests the high-level hana.js connector which wraps the hana-mock engine.

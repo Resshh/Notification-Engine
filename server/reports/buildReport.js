@@ -1,6 +1,6 @@
 /**
  * buildReport — Report generation entry point
- * Story 6.3 & 6.4 | Owner: Swarnalakshmi Perumal | Sprint 1 & 2
+ * Story 6.3 & 6.4 | Sprint 1 & 2
  * Ref: FR-19, sub-tasks #193, #198
  *
  * Usage (from Batch 1 / notification engine):

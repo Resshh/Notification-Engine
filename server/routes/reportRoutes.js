@@ -1,6 +1,6 @@
 /**
  * Report Generation Routes
- * Story 6.3, 6.4, 6.5 | Owner: Swarnalakshmi Perumal
+ * Story 6.3, 6.4, 6.5
  *
  * Endpoints:
  *   POST /api/reports/generate

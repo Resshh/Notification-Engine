@@ -1,15 +1,9 @@
 /**
  * Shared Query Timeout and Row Limits Configuration & Helper Utilities.
  * Story 5.4 (Backlog ID 156), Sub-tasks 157, 158, 159, 162.
- * Owner: Rohit Biju | Ref: FR-16, A5
  *
  * Architecture Rule 2:
  * "Every shared job has one file: one decrypt, one validator, one limits config, one formatter, mapping applied once."
- *
- * Used by all three data connectors:
- * - Joice Mary Ajith (Story 2.2: Execute SQL Server Read-Only Queries)
- * - Swarnalakshmi Perumal (Story 3.2: Execute SAP HANA Queries)
- * - Akshay S P (Story 4.3: Retrieve Data from Service Layer)
  *
  * Mentor Note (Ref: A5):
  * Default query timeout is set to 30 seconds (30,000 ms) and global row limit cap is set to 1,000 rows.
