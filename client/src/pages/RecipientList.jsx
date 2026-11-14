@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.js'
 import './RecipientList.css'
@@ -16,6 +15,7 @@ const emptyEmailInputs = {
   bcc: '',
 }
 
+// Correct email validation pattern.
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // Split multiple emails entered with commas, semicolons or new lines.
@@ -66,35 +66,16 @@ export default function RecipientList() {
     }
   }, [])
 
-useEffect(() => {
-  let active = true
+  // Load lists when the component first opens.
+  useEffect(() => {
+    let active = true
 
-  api('/recipient-lists')
-    .then((data) => {
-      if (!Array.isArray(data.lists)) {
-        throw new Error('Invalid recipient-list response.')
-      }
+    loadLists(() => active)
 
-      if (active) {
-        setLists(data.lists)
-        setError('')
-      }
-    })
-    .catch((err) => {
-      if (active) {
-        setError(err.message || 'Unable to load recipient lists.')
-      }
-    })
-    .finally(() => {
-      if (active) {
-        setLoading(false)
-      }
-    })
-
-  return () => {
-    active = false
-  }
-}, [])
+    return () => {
+      active = false
+    }
+  }, [loadLists])
 
   // Open the form for creating a new list.
   function openCreateForm() {
@@ -154,8 +135,9 @@ useEffect(() => {
 
     const addresses = parseEmails(value)
 
+    // Validate each entered email address.
     const invalid = addresses.find(
-      (email) => !emailPattern[0].test(email)
+      (email) => !emailPattern.test(email)
     )
 
     if (invalid) {
@@ -218,6 +200,7 @@ useEffect(() => {
       return false
     }
 
+    // At least one To email address is required.
     if (data.emails.length === 0) {
       setError('Please add at least one To email address.')
       return false
@@ -229,6 +212,7 @@ useEffect(() => {
       ...data.bcc,
     ]
 
+    // Validate all email addresses.
     for (const email of allEmails) {
       if (!emailPattern.test(email.trim())) {
         setError(`Invalid email address: ${email}`)
@@ -279,6 +263,7 @@ useEffect(() => {
       bcc: [...form.bcc],
     }
 
+    // Include any email addresses that have not yet been added as chips.
     for (const field of ['emails', 'cc', 'bcc']) {
       const value = emailInputs[field].trim()
 
