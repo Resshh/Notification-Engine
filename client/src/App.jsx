@@ -13,7 +13,7 @@ import JobSetup from './pages/JobSetup.jsx'
 import Jobs from './pages/Jobs.jsx'
 import Login from './pages/Login.jsx'
 import QuerySetup from './pages/QuerySetup.jsx'
-import RecipientList from './pages/RecipientList.jsx'
+import Recipients from './pages/Recipients.jsx'
 import RunHistory from './pages/RunHistory.jsx'
 import Templates from './pages/Templates.jsx'
 
@@ -151,7 +151,7 @@ export default function App() {
             path="/jobs/:id"
             element={isAdmin ? <JobSetup /> : <h2>Admins only</h2>}
           />
-          <Route path="/recipientslist" element={<RecipientList />} />
+          <Route path="/recipientslist" element={<Recipients />} />
           <Route path="/history" element={<RunHistory />} />
           <Route path="/templates" element={<Templates />} />
           <Route path="/connections" element={<Connections />} />

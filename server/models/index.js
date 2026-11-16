@@ -85,10 +85,6 @@ const SentHistory = model('SentHistory', new Schema({
 }), 'sent_history');
 
 // ---- Owned by Batch 2 (we only READ these to fill the job form dropdowns) ----
-// Minimal shape so our dropdowns work with seed data. Batch 2's real model replaces it.
-const Query = mongoose.models.Query || model('Query', new Schema({
-  name: String,       // e.g. 'Overdue invoices'
-  connection: String, // e.g. 'Sales SQL Server'
-}), 'queries');
+const Query = require('./Query');
 
 module.exports = { User, Job, Template, RecipientList, JobRun, DeliveryLog, SentHistory, Query };

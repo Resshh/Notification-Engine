@@ -18,7 +18,7 @@ test('DaysOverdue > 7 returns the expected invoices', () => {
   const result = rows
     .filter((row) =>
       matches(row, [
-        { field: 'DaysOverdue', operator: '>', value: 7 },
+      { column: 'DaysOverdue', op: '>', value: 7 },
       ])
     )
     .map((row) => row.InvoiceNo);
@@ -31,8 +31,8 @@ test('multiple conditions use AND', () => {
 
   assert.equal(
     matches(row, [
-      { field: 'DaysOverdue', operator: '>', value: 7 },
-      { field: 'Amount', operator: '>=', value: 20000 },
+      { column: 'DaysOverdue', op: '>', value: 7 },
+      { column: 'Amount', op: '>=', value: 20000 },
     ]),
     true
   );
@@ -45,10 +45,10 @@ test('empty conditions match every row', () => {
 test('supports all six operators', () => {
   const row = { amount: 100 };
 
-  assert.equal(matches(row, [{ field: 'amount', operator: '>', value: 50 }]), true);
-  assert.equal(matches(row, [{ field: 'amount', operator: '>=', value: 100 }]), true);
-  assert.equal(matches(row, [{ field: 'amount', operator: '<', value: 150 }]), true);
-  assert.equal(matches(row, [{ field: 'amount', operator: '<=', value: 100 }]), true);
-  assert.equal(matches(row, [{ field: 'amount', operator: '=', value: 100 }]), true);
-  assert.equal(matches(row, [{ field: 'amount', operator: '!=', value: 50 }]), true);
+  assert.equal(matches(row, [{ column: 'amount', op: '>', value: 50 }]), true);
+  assert.equal(matches(row, [{ column: 'amount', op: '>=', value: 100 }]), true);
+  assert.equal(matches(row, [{ column: 'amount', op: '<', value: 150 }]), true);
+  assert.equal(matches(row, [{ column: 'amount', op: '<=', value: 100 }]), true);
+  assert.equal(matches(row, [{ column: 'amount', op: '=', value: 100 }]), true);
+  assert.equal(matches(row, [{ column: 'amount', op: '!=', value: 50 }]), true);
 });

@@ -1,20 +1,17 @@
 const express = require("express");
-const router = express.Router();
 const { requireAuth, requireAdmin } = require("../middleware/auth");
-
 const {
-  listTemplates,
+  getTemplates,
   createTemplate,
-  getTemplate,
   updateTemplate,
   deleteTemplate,
-  previewTemplate,
-} = require("../controller/templateController");
+  previewTemplate
+} = require("../controllers/templateController");
 
-// Reads: any logged-in user (FR-01). Writes: admins only (FR-02).
-router.get("/", requireAuth, listTemplates);
+const router = express.Router();
+
+router.get("/", requireAuth, getTemplates);
 router.post("/preview", requireAuth, previewTemplate);
-router.get("/:id", requireAuth, getTemplate);
 router.post("/", requireAdmin, createTemplate);
 router.put("/:id", requireAdmin, updateTemplate);
 router.delete("/:id", requireAdmin, deleteTemplate);

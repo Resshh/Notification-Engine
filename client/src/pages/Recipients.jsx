@@ -10,12 +10,6 @@ const emptyForm = {
   bcc: [],
 }
 
-const emptyEmailInputs = {
-  emails: '',
-  cc: '',
-  bcc: '',
-}
-
 // Correct email validation pattern.
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -40,33 +34,51 @@ export default function Recipients() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  // setState only inside callbacks, so it is safe to call from useEffect
-  function loadLists() {
-    return api('/recipient-lists')
-      .then((data) => {
-        if (!Array.isArray(data.lists)) {
-          throw new Error('Invalid recipient-list response.')
-        }
-        setLists(data.lists)
-      })
-      .catch((err) => setError(err.message || 'Unable to load recipient lists.'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    loadLists()
+  const fetchLists = useCallback(async () => {
+    const data = await api('/recipient-lists')
+    if (!Array.isArray(data.lists)) {
+      throw new Error('Invalid recipient-list response.')
+    }
+    return data.lists
   }, [])
+
+  const loadLists = useCallback(async () => {
+    try {
+      setLists(await fetchLists())
+      setError('')
+    } catch (err) {
+      setError(err.message || 'Unable to load recipient lists.')
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchLists])
 
   // Load lists when the component first opens.
   useEffect(() => {
     let active = true
 
-    loadLists(() => active)
+    fetchLists()
+      .then((loadedLists) => {
+        if (active) {
+          setLists(loadedLists)
+          setError('')
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setError(err.message || 'Unable to load recipient lists.')
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false)
+        }
+      })
 
     return () => {
       active = false
     }
-  }, [loadLists])
+  }, [fetchLists])
 
   // Open the form for creating a new list.
   function openCreateForm() {
@@ -180,59 +192,6 @@ export default function Recipients() {
       event.preventDefault()
       addEmail(field)
     }
-  }
-
-  // Validate the complete form before sending it to the backend.
-  function validateForm(data, currentEditingId) {
-    if (!data.name.trim()) {
-      setError('Recipient list name is required.')
-      return false
-    }
-
-    // At least one To email address is required.
-    if (data.emails.length === 0) {
-      setError('Please add at least one To email address.')
-      return false
-    }
-
-    const allEmails = [
-      ...data.emails,
-      ...data.cc,
-      ...data.bcc,
-    ]
-
-    // Validate all email addresses.
-    for (const email of allEmails) {
-      if (!emailPattern.test(email.trim())) {
-        setError(`Invalid email address: ${email}`)
-        return false
-      }
-    }
-
-    // Email addresses must be unique across To, CC and BCC.
-    const normalized = allEmails.map(
-      (email) => email.trim().toLowerCase()
-    )
-
-    if (new Set(normalized).size !== normalized.length) {
-      setError('An email address cannot appear more than once in the list.')
-      return false
-    }
-
-    // Check for an existing list with the same name.
-    const duplicateName = lists.find(
-      (list) =>
-        list.name.trim().toLowerCase() ===
-          data.name.trim().toLowerCase() &&
-        list._id !== currentEditingId
-    )
-
-    if (duplicateName) {
-      setError('A recipient list with this name already exists.')
-      return false
-    }
-
-    return true
   }
 
   // Create a new recipient list or update an existing one.

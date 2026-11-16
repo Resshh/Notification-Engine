@@ -10,7 +10,6 @@ const users = [
   { name: 'Admin User', email: 'admin@test.com', role: 'admin' },
   { name: 'Normal User', email: 'user@test.com', role: 'user' },
 ];
-
 const lists = [
   { name: 'Finance Team', emails: ['finance@test.com'], cc: ['accounts.head@test.com'], bcc: [] },
   { name: 'Sales Management', emails: ['sales.head@test.com', 'sales.manager@test.com'], cc: [], bcc: [] },
@@ -72,7 +71,6 @@ const upsert = (Model, filter, doc) => Model.findOneAndUpdate(filter, doc, { ups
   await mongoose.connect(process.env.MONGO_URI);
   const passwordHash = await bcrypt.hash(process.env.SEED_PASSWORD || 'Test@123', 10);
   for (const u of users) await User.updateOne({ email: u.email }, { ...u, passwordHash }, { upsert: true });
-
   const listIds = {};
   for (const l of lists) listIds[l.name] = (await upsert(RecipientList, { name: l.name }, l))._id;
   const templateIds = {};
