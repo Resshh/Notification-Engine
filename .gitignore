@@ -10,3 +10,6 @@ coverage/
 server/reports/output/
 backend/reports/output/
 reports/output/
+
+# Local editor/tool settings
+.serena/
