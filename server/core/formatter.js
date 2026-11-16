@@ -1,7 +1,7 @@
 /**
  * Common Data Formatter
  *
- * Story 6.1 | Owner: Swarnalakshmi Perumal | Sprint 1
+ * Story 6.1 | Sprint 1
  * Ref: FR-17, sub-tasks #177, #178, #179, #180
  *
  * Takes raw { columns, rows } from any connector and returns
