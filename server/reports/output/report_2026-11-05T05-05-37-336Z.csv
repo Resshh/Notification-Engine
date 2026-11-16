@@ -1,0 +1,4 @@
+﻿InvoiceNo,CustomerName,Amount,DueDate,Status
+INV-1001,Alpha Traders,85000,2026-11-10,Overdue
+INV-1002,Beta Logistics,45000,2026-11-15,Pending
+INV-1003,Gamma Retail,120000,2026-11-01,Overdue

@@ -1,0 +1,6 @@
+﻿InvoiceNo,CustomerCode,CustomerName,Email,DueDate,Amount,Paid
+INV-1001,C001,Alpha Traders,accounts@alphatraders.com,2026-10-10,85000,0
+INV-1002,C002,Beta Supplies,finance@betasupplies.com,2026-10-05,42500,0
+INV-1003,C003,Gamma Exports,billing@gammaexports.com,2026-09-28,1200000,0
+INV-1004,C004,Delta Solutions,ap@deltasolutions.com,2026-10-15,67000,0
+INV-1005,C005,Epsilon Corp,accounts@epsiloncorp.com,2026-09-20,310000,0
