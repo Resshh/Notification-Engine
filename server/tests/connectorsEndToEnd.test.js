@@ -1,6 +1,5 @@
 /**
  * Story 7.3 - Backend testing for the data connectors (SQL Server and SAP HANA)
- * Owner: Joice Mary Ajith
  *
  * These tests run the same path the app uses (executeQuery -> connector -> formatter)
  * with the database layer faked, so they need no MongoDB, no Docker and no network.

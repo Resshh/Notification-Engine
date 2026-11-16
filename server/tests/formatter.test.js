@@ -1,6 +1,6 @@
 /**
  * Unit Tests — Common Data Formatter
- * Story 6.1 | Owner: Swarnalakshmi Perumal | Sprint 1
+ * Story 6.1 | Sprint 1
  * Ref: FR-17, sub-task #180
  *
  * Coverage:
