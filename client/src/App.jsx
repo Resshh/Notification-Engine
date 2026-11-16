@@ -15,6 +15,25 @@ import ProtectedRoute from './components/ProtectedRoute.jsx'
 import { useAuth } from './context/AuthContext.jsx'
 import { api } from './api.js'
 
+// Simple line icons for the side menu (same set the project used before; no icon library needed).
+const ICON_PATHS = {
+  dashboard: 'M3 3h8v8H3z M13 3h8v5h-8z M13 10h8v11h-8z M3 13h8v8H3z',
+  users: 'M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M20 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+  file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M8 13h8 M8 17h8',
+  history: 'M3 12a9 9 0 1 0 2.64-6.36L3 8 M3 3v5h5 M12 7v5l3 2',
+  connection: 'M8 7v5a4 4 0 0 0 8 0V7 M6 3v4 M10 3v4 M14 3v4 M18 3v4 M12 16v5',
+  search: 'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M21 21l-6-6',
+}
+
+function NavIcon({ name }) {
+  return (
+    <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={ICON_PATHS[name]} />
+    </svg>
+  )
+}
+
 function DashboardLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -90,31 +109,35 @@ function DashboardLayout() {
       <aside className="app-sidebar">
         <nav className="sidebar-navigation">
           <NavLink to="/" end>
+            <NavIcon name="dashboard" />
             Job Dashboard
           </NavLink>
 
           <NavLink to="/recipients">
+            <NavIcon name="users" />
             Recipient Lists
           </NavLink>
 
           <NavLink to="/templates">
+            <NavIcon name="file" />
             Templates
           </NavLink>
 
           <NavLink to="/history">
+            <NavIcon name="history" />
             Run History
           </NavLink>
 
           {/* Connections and queries are admin settings (Common Guide: only admins change them) */}
           {isAdmin && (
             <>
-              <div className="sidebar-divider" />
-
               <NavLink to="/connections">
+                <NavIcon name="connection" />
                 Connections
               </NavLink>
 
               <NavLink to="/queries">
+                <NavIcon name="search" />
                 Queries
               </NavLink>
             </>

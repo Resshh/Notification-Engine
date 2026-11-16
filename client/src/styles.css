@@ -281,3 +281,14 @@
 }
 
 }
+
+/* Keep Batch 2 pages inside the screen: wide tables scroll inside their panel instead of stretching the page. */
+.batch2 .page-stack {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Phones: let a page title and its button (e.g. "+ Add Connection") wrap instead of squeezing. */
+.batch2 .page-header.panel-heading {
+  flex-wrap: wrap;
+  gap: 12px;
+}

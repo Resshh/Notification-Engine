@@ -369,9 +369,16 @@ a {
 }
 
 .sidebar-navigation a {
+  gap: 10px;
   transition:
     background-color 180ms ease,
     color 180ms ease;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .sidebar-navigation a:hover {
@@ -382,11 +389,6 @@ a {
   background: var(--espresso);
   color: var(--ivory-cream);
   font-weight: 600;
-}
-
-.sidebar-divider {
-  margin: 10px 4px 4px;
-  border-top: 1px dashed var(--muted-brown);
 }
 
 .sidebar-disabled {
@@ -1007,10 +1009,6 @@ tbody tr:hover {
     flex-direction: row;
     flex-wrap: wrap;
     padding: 8px;
-  }
-
-  .sidebar-divider {
-    display: none;
   }
 
   .layout > main.app-content {
@@ -2226,11 +2224,19 @@ select:focus-visible {
 .setup-card {
   display: grid;
   gap: 12px;
+  min-width: 0; /* fieldsets default to their widest content; this lets them fit small screens */
   margin: 0 0 16px;
   padding: 16px 18px;
   border: 1px solid var(--soft-taupe);
   border-radius: 10px;
   background: var(--surface-white);
+}
+
+.setup-card > *,
+.setup-card select,
+.setup-card input {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .setup-card legend {
