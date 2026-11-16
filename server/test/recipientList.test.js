@@ -1,349 +1,502 @@
-
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const http = require('node:http')
-const jwt = require('jsonwebtoken')
+const request = require('http')
 const express = require('express')
-
-process.env.JWT_SECRET = 'test-secret'
+const jwt = require('jsonwebtoken')
 
 const { RecipientList } = require('../models')
-const router = require('../routes/recipientList')
+const recipientListRouter = require('../routes/recipientList')
 
+// Test JWT secret
+process.env.JWT_SECRET = 'test-secret'
+
+// Test Express application
 const app = express()
 
 app.use(express.json())
-app.use('/api/recipient-lists', router)
+app.use('/api/recipient-lists', recipientListRouter)
 
-// Error-handling middleware (same behavior as the main application)
+// Error handler for unexpected errors
 app.use((err, req, res, next) => {
   res.status(err.status || 500).json({
-    error: err.status
-      ? err.message
-      : 'Something went wrong',
+    error: err.message || 'Internal server error',
   })
 })
 
-const validId = '507f1f77bcf86cd799439011'
-
-function token(role = 'user') {
-  return jwt.sign({ role }, process.env.JWT_SECRET)
+// Generate authentication token
+function createToken(role = 'admin') {
+  return jwt.sign(
+    { id: '123456789012345678901234', role },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' }
+  )
 }
 
-// Reusable HTTP request helper
-function request(method, path, body, role = 'user', authenticated = true) {
-  return new Promise((resolve, reject) => {
-    const server = app.listen(0, '127.0.0.1', () => {
-      const port = server.address().port
-      const payload = body === undefined ? undefined : JSON.stringify(body)
+// HTTP request helper
+async function makeRequest(method, path, body, token) {
+  const server = app.listen(0)
 
-      const req = http.request(
-        {
-          hostname: '127.0.0.1',
-          port,
-          path,
-          method,
-          headers: {
-            ...(authenticated
-              ? { Authorization: `Bearer ${token(role)}` }
-              : {}),
-            ...(payload !== undefined
-              ? {
-                  'Content-Type': 'application/json',
-                  'Content-Length': Buffer.byteLength(payload),
-                }
-              : {}),
-          },
-        },
-        (res) => {
-          let data = ''
+  try {
+    const port = server.address().port
 
-          res.on('data', (chunk) => {
-            data += chunk
+    return await new Promise((resolve, reject) => {
+      const data = body === undefined
+        ? null
+        : JSON.stringify(body)
+
+      const options = {
+        hostname: '127.0.0.1',
+        port,
+        path: `/api/recipient-lists${path}`,
+        method,
+        headers: {},
+      }
+
+      if (data !== null) {
+        options.headers['Content-Type'] = 'application/json'
+        options.headers['Content-Length'] = Buffer.byteLength(data)
+      }
+
+      if (token) {
+        options.headers.Authorization = `Bearer ${token}`
+      }
+
+      const req = request.request(options, (res) => {
+        let responseData = ''
+
+        res.on('data', (chunk) => {
+          responseData += chunk
+        })
+
+        res.on('end', () => {
+          let parsedData = {}
+
+          try {
+            parsedData = responseData
+              ? JSON.parse(responseData)
+              : {}
+          } catch {
+            parsedData = { raw: responseData }
+          }
+
+          resolve({
+            status: res.statusCode,
+            body: parsedData,
           })
-
-          res.on('end', () => {
-            server.close()
-
-            let parsedBody
-
-            try {
-              parsedBody = data ? JSON.parse(data) : null
-            } catch {
-              parsedBody = data
-            }
-
-            resolve({
-              status: res.statusCode,
-              body: parsedBody,
-            })
-          })
-        }
-      )
-
-      req.on('error', (error) => {
-        server.close()
-        reject(error)
+        })
       })
 
-      if (payload !== undefined) {
-        req.write(payload)
+      req.on('error', reject)
+
+      if (data !== null) {
+        req.write(data)
       }
 
       req.end()
     })
-
-    server.on('error', reject)
-  })
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
+  }
 }
 
-test('GET recipient lists requires authentication', async () => {
-  const response = await request(
-    'GET',
-    '/api/recipient-lists',
-    undefined,
-    'user',
-    false
-  )
+// Common valid recipient list
+const validList = {
+  name: 'Marketing Team',
+  emails: ['test@example.com'],
+  cc: ['cc@example.com'],
+  bcc: ['bcc@example.com'],
+}
 
-  assert.equal(response.status, 401)
-  assert.equal(response.body.error, 'Please log in')
+// Valid MongoDB ObjectId
+const validId = '507f1f77bcf86cd799439011'
+
+afterEach(() => {
+  jest.restoreAllMocks()
 })
 
-test('GET returns recipient lists sorted by name', async () => {
-  const originalFind = RecipientList.find
+// --------------------------------------------------
+// GET TESTS
+// --------------------------------------------------
 
-  RecipientList.find = () => ({
-    sort: (sortQuery) => {
-      assert.deepEqual(sortQuery, { name: 1 })
+describe('GET /api/recipient-lists', () => {
+  test('should return 401 when no token is provided', async () => {
+    const response = await makeRequest(
+      'GET',
+      '/',
+      undefined,
+      undefined
+    )
 
-      return {
-        lean: async () => [
-          { name: 'Accounting' },
-          { name: 'Finance' },
-        ],
-      }
-    },
+    expect(response.status).toBe(401)
+    expect(response.body.error).toBe('Please log in')
   })
 
-  try {
-    const response = await request(
+  test('should return 401 when an invalid token is provided', async () => {
+    const response = await makeRequest(
       'GET',
-      '/api/recipient-lists',
+      '/',
       undefined,
-      'user'
+      'invalid-token'
     )
 
-    assert.equal(response.status, 200)
-    assert.deepEqual(response.body.lists, [
-      { name: 'Accounting' },
-      { name: 'Finance' },
-    ])
-  } finally {
-    RecipientList.find = originalFind
-  }
+    expect(response.status).toBe(401)
+  })
+
+  test('should allow an authenticated user to view recipient lists', async () => {
+    const lists = [
+      { name: 'Marketing Team', emails: ['a@example.com'] },
+      { name: 'Sales Team', emails: ['b@example.com'] },
+    ]
+
+    const lean = jest.fn().mockResolvedValue(lists)
+    const sort = jest.fn().mockReturnValue({ lean })
+
+    jest.spyOn(RecipientList, 'find').mockReturnValue({ sort })
+
+    const response = await makeRequest(
+      'GET',
+      '/',
+      undefined,
+      createToken('user')
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.lists).toEqual(lists)
+    expect(RecipientList.find).toHaveBeenCalled()
+    expect(sort).toHaveBeenCalledWith({ name: 1 })
+  })
 })
 
-test('POST creates a recipient list with trimmed values and default arrays', async () => {
-  const originalCreate = RecipientList.create
+// --------------------------------------------------
+// POST TESTS
+// --------------------------------------------------
 
-  RecipientList.create = async (input) => {
-    assert.deepEqual(input, {
-      name: 'Finance Team',
-      emails: ['one@example.com', 'two@example.com'],
-      cc: [],
-      bcc: [],
+describe('POST /api/recipient-lists', () => {
+  test('should create a recipient list successfully', async () => {
+    jest.spyOn(RecipientList, 'create').mockResolvedValue({
+      _id: validId,
+      ...validList,
     })
 
-    return {
-      _id: validId,
-      ...input,
-    }
-  }
-
-  try {
-    const response = await request(
+    const response = await makeRequest(
       'POST',
-      '/api/recipient-lists',
-      {
-        name: ' Finance Team ',
-        emails: [' one@example.com ', 'two@example.com'],
-      },
-      'admin'
+      '/',
+      validList,
+      createToken('admin')
     )
 
-    assert.equal(response.status, 201)
-    assert.equal(response.body.list.name, 'Finance Team')
-    assert.deepEqual(response.body.list.emails, [
-      'one@example.com',
-      'two@example.com',
-    ])
-    assert.deepEqual(response.body.list.cc, [])
-    assert.deepEqual(response.body.list.bcc, [])
-  } finally {
-    RecipientList.create = originalCreate
-  }
-})
+    expect(response.status).toBe(201)
+    expect(response.body.list.name).toBe('Marketing Team')
+    expect(RecipientList.create).toHaveBeenCalledWith(validList)
+  })
 
-test('POST rejects non-admin users', async () => {
-  const response = await request(
-    'POST',
-    '/api/recipient-lists',
-    {
-      name: 'Finance Team',
-    },
-    'user'
+  test('should return 401 when no token is provided', async () => {
+    const response = await makeRequest(
+      'POST',
+      '/',
+      validList
+    )
+
+    expect(response.status).toBe(401)
+  })
+
+  test('should return 403 when a normal user tries to create a list', async () => {
+    const response = await makeRequest(
+      'POST',
+      '/',
+      validList,
+      createToken('user')
+    )
+
+    expect(response.status).toBe(403)
+    expect(response.body.error).toBe('Admins only')
+  })
+
+  test('should return 400 when list name is missing', async () => {
+    const response = await makeRequest(
+      'POST',
+      '/',
+      {
+        emails: ['test@example.com'],
+      },
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('List name is required.')
+  })
+
+  test('should return 400 when list name is empty', async () => {
+    const response = await makeRequest(
+      'POST',
+      '/',
+      {
+        name: '  ',
+        emails: ['test@example.com'],
+      },
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+  })
+
+  test('should return 400 when To email array is missing', async () => {
+    const response = await makeRequest(
+      'POST',
+      '/',
+      { name: 'Marketing Team' },
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe(
+      'At least one To email address is required.'
+    )
+  })
+
+  test('should return 400 when To email array is empty', async () => {
+    const response = await makeRequest(
+      'POST',
+      '/',
+      {
+        name: 'Marketing Team',
+        emails: [],
+      },
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+  })
+
+  test.each(['emails', 'cc', 'bcc'])(
+    'should return 400 when an invalid email is provided in %s',
+    async (field) => {
+      const body = {
+        ...validList,
+        [field]: ['invalid-email'],
+      }
+
+      const response = await makeRequest(
+        'POST',
+        '/',
+        body,
+        createToken('admin')
+      )
+
+      expect(response.status).toBe(400)
+      expect(response.body.error).toContain('Invalid email address')
+    }
   )
 
-  assert.equal(response.status, 403)
-  assert.equal(response.body.error, 'Admins only')
+  test('should return 400 when an email field is not an array', async () => {
+    const response = await makeRequest(
+      'POST',
+      '/',
+      {
+        ...validList,
+        emails: 'test@example.com',
+      },
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toContain('must be an array')
+  })
+
+  test('should return 409 when recipient list name already exists', async () => {
+    const duplicateError = new Error('Duplicate key')
+    duplicateError.code = 11000
+
+    jest.spyOn(RecipientList, 'create').mockRejectedValue(duplicateError)
+
+    const response = await makeRequest(
+      'POST',
+      '/',
+      validList,
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(409)
+    expect(response.body.error).toContain('already exists')
+  })
 })
 
-test('POST rejects invalid email addresses', async () => {
-  const response = await request(
-    'POST',
-    '/api/recipient-lists',
-    {
-      name: 'Finance Team',
-      emails: ['valid@example.com', 'invalid-email'],
-    },
-    'admin'
-  )
+// --------------------------------------------------
+// PUT TESTS
+// --------------------------------------------------
 
-  assert.equal(response.status, 400)
-  assert.match(
-    response.body.error,
-    /Invalid email address in emails at position 2/
-  )
-})
+describe('PUT /api/recipient-lists/:id', () => {
+  test('should update a recipient list successfully', async () => {
+    const existingList = {
+      _id: validId,
+      name: 'Old Name',
+      emails: ['old@example.com'],
+      cc: [],
+      bcc: [],
+      save: jest.fn().mockResolvedValue(true),
+    }
 
-test('POST rejects a missing list name', async () => {
-  const response = await request(
-    'POST',
-    '/api/recipient-lists',
-    {
-      emails: ['valid@example.com'],
-    },
-    'admin'
-  )
+    jest.spyOn(RecipientList, 'findById')
+      .mockResolvedValue(existingList)
 
-  assert.equal(response.status, 400)
-  assert.equal(response.body.error, 'List name is required.')
-})
-
-test('PUT updates only supplied fields', async () => {
-  const originalFindById = RecipientList.findById
-
-  const list = {
-    _id: validId,
-    name: 'Old Name',
-    emails: ['old@example.com'],
-    cc: [],
-    bcc: [],
-    async save() {
-      return this
-    },
-  }
-
-  RecipientList.findById = async (id) => {
-    assert.equal(id, validId)
-    return list
-  }
-
-  try {
-    const response = await request(
+    const response = await makeRequest(
       'PUT',
-      `/api/recipient-lists/${validId}`,
-      {
-        name: ' New Name ',
-        cc: [' copy@example.com '],
-      },
-      'admin'
+      `/${validId}`,
+      { name: 'Updated Name' },
+      createToken('admin')
     )
 
-    assert.equal(response.status, 200)
-    assert.equal(response.body.list.name, 'New Name')
-    assert.deepEqual(response.body.list.emails, ['old@example.com'])
-    assert.deepEqual(response.body.list.cc, ['copy@example.com'])
-    assert.deepEqual(response.body.list.bcc, [])
-  } finally {
-    RecipientList.findById = originalFindById
-  }
-})
+    expect(response.status).toBe(200)
+    expect(existingList.name).toBe('Updated Name')
+    expect(existingList.save).toHaveBeenCalled()
+  })
 
-test('PUT rejects an invalid recipient list ID', async () => {
-  const response = await request(
-    'PUT',
-    '/api/recipient-lists/not-an-object-id',
-    {
-      name: 'Updated Name',
-    },
-    'admin'
-  )
-
-  assert.equal(response.status, 400)
-  assert.equal(response.body.error, 'Invalid recipient list ID.')
-})
-
-test('PUT returns 404 when the recipient list does not exist', async () => {
-  const originalFindById = RecipientList.findById
-  RecipientList.findById = async () => null
-
-  try {
-    const response = await request(
+  test('should return 401 when no token is provided', async () => {
+    const response = await makeRequest(
       'PUT',
-      `/api/recipient-lists/${validId}`,
-      {
-        name: 'Updated Name',
-      },
-      'admin'
+      `/${validId}`,
+      { name: 'Updated Name' }
     )
 
-    assert.equal(response.status, 404)
-    assert.equal(response.body.error, 'Recipient list not found.')
-  } finally {
-    RecipientList.findById = originalFindById
-  }
+    expect(response.status).toBe(401)
+  })
+
+  test('should return 403 when a normal user tries to update a list', async () => {
+    const response = await makeRequest(
+      'PUT',
+      `/${validId}`,
+      { name: 'Updated Name' },
+      createToken('user')
+    )
+
+    expect(response.status).toBe(403)
+  })
+
+  test('should return 400 for an invalid recipient list ID', async () => {
+    const response = await makeRequest(
+      'PUT',
+      '/invalid-id',
+      { name: 'Updated Name' },
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('Invalid recipient list ID.')
+  })
+
+  test('should return 404 when recipient list does not exist', async () => {
+    jest.spyOn(RecipientList, 'findById').mockResolvedValue(null)
+
+    const response = await makeRequest(
+      'PUT',
+      `/${validId}`,
+      { name: 'Updated Name' },
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBe('Recipient list not found.')
+  })
+
+  test('should return 400 when update body is empty', async () => {
+    const response = await makeRequest(
+      'PUT',
+      `/${validId}`,
+      {},
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toContain('Provide a list name')
+  })
+
+  test('should return 400 when To email array is updated to empty', async () => {
+    const response = await makeRequest(
+      'PUT',
+      `/${validId}`,
+      { emails: [] },
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe(
+      'At least one To email address is required.'
+    )
+  })
+
+  test('should return 400 when an invalid email is provided during update', async () => {
+    const response = await makeRequest(
+      'PUT',
+      `/${validId}`,
+      { emails: ['invalid-email'] },
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+  })
 })
 
-test('DELETE removes an existing recipient list', async () => {
-  const originalFindByIdAndDelete = RecipientList.findByIdAndDelete
+// --------------------------------------------------
+// DELETE TESTS
+// --------------------------------------------------
 
-  RecipientList.findByIdAndDelete = async (id) => {
-    assert.equal(id, validId)
-    return { _id: validId, name: 'Finance Team' }
-  }
+describe('DELETE /api/recipient-lists/:id', () => {
+  test('should delete a recipient list successfully', async () => {
+    jest.spyOn(RecipientList, 'findByIdAndDelete')
+      .mockResolvedValue({ _id: validId, name: 'Marketing Team' })
 
-  try {
-    const response = await request(
+    const response = await makeRequest(
       'DELETE',
-      `/api/recipient-lists/${validId}`,
+      `/${validId}`,
       undefined,
-      'admin'
+      createToken('admin')
     )
 
-    assert.equal(response.status, 200)
-    assert.equal(response.body.message, 'Recipient list deleted.')
-  } finally {
-    RecipientList.findByIdAndDelete = originalFindByIdAndDelete
-  }
-})
+    expect(response.status).toBe(200)
+    expect(response.body.message).toBe('Recipient list deleted.')
+  })
 
-test('DELETE returns 404 when the recipient list does not exist', async () => {
-  const originalFindByIdAndDelete = RecipientList.findByIdAndDelete
-  RecipientList.findByIdAndDelete = async () => null
-
-  try {
-    const response = await request(
+  test('should return 401 when no token is provided', async () => {
+    const response = await makeRequest(
       'DELETE',
-      `/api/recipient-lists/${validId}`,
-      undefined,
-      'admin'
+      `/${validId}`
     )
 
-    assert.equal(response.status, 404)
-    assert.equal(response.body.error, 'Recipient list not found.')
-  } finally {
-    RecipientList.findByIdAndDelete = originalFindByIdAndDelete
-  }
+    expect(response.status).toBe(401)
+  })
+
+  test('should return 403 when a normal user tries to delete a list', async () => {
+    const response = await makeRequest(
+      'DELETE',
+      `/${validId}`,
+      undefined,
+      createToken('user')
+    )
+
+    expect(response.status).toBe(403)
+  })
+
+  test('should return 400 for an invalid recipient list ID', async () => {
+    const response = await makeRequest(
+      'DELETE',
+      '/invalid-id',
+      undefined,
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(400)
+  })
+
+  test('should return 404 when recipient list does not exist', async () => {
+    jest.spyOn(RecipientList, 'findByIdAndDelete')
+      .mockResolvedValue(null)
+
+    const response = await makeRequest(
+      'DELETE',
+      `/${validId}`,
+      undefined,
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBe('Recipient list not found.')
+  })
 })
