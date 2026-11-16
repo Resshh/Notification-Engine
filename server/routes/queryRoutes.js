@@ -2,17 +2,20 @@
 const express = require("express");
 const queryController = require("../controllers/queryController");
 const queryService = require("../services/queryService");
+const { requireAuth, requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
 
+// Reads: any logged-in user (job form and template dropdowns). Changes and previews: admins only.
+
 // Create a query
-router.post("/", queryController.createQuery);
+router.post("/", requireAdmin, queryController.createQuery);
 
 // Get all saved queries
-router.get("/", queryController.getAllQueries);
+router.get("/", requireAuth, queryController.getAllQueries);
 
 // Preview a saved query
-router.post("/:id/preview", async (req, res, next) => {
+router.post("/:id/preview", requireAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
     const params = req.body?.params || {};
@@ -26,12 +29,12 @@ router.post("/:id/preview", async (req, res, next) => {
 });
 
 // Get a query by ID
-router.get("/:id", queryController.getQueryById);
+router.get("/:id", requireAuth, queryController.getQueryById);
 
 // Update a query
-router.put("/:id", queryController.updateQuery);
+router.put("/:id", requireAdmin, queryController.updateQuery);
 
 // Delete a query
-router.delete("/:id", queryController.deleteQuery);
+router.delete("/:id", requireAdmin, queryController.deleteQuery);
 
 module.exports = router;

@@ -19,9 +19,12 @@ function getTransport() {
   return transport;
 }
 
+// ON unless TEST_MODE is exactly 'false'. The header badge uses this same check, so it can't disagree.
+const isTestMode = () => process.env.TEST_MODE !== 'false';
+
 // Exposed so tests can see exactly who would receive the email.
 function applyTestMode({ to, cc, bcc }) {
-  if (process.env.TEST_MODE === 'false') return { to, cc, bcc };
+  if (!isTestMode()) return { to, cc, bcc };
   return { to: process.env.TEST_EMAIL || 'team-inbox@test.com', cc: undefined, bcc: undefined };
 }
 
@@ -36,4 +39,4 @@ async function sendMail({ to, cc, bcc, subject, html, attachments }) {
   });
 }
 
-module.exports = { sendMail, applyTestMode };
+module.exports = { sendMail, applyTestMode, isTestMode };

@@ -14,6 +14,7 @@ const jobsRoutes = require("./routes/jobs");
 const runsRoutes = require("./routes/runs");
 const querySampleRoutes = require("./routes/queries");
 const errorHandler = require("./middleware/errorHandler");
+const { isTestMode } = require("./engine/mailer");
 
 const app = express();
 
@@ -30,7 +31,7 @@ app.get("/api/health", (req, res) => {
     ok: true,
     success: true,
     status: "ok",
-    testMode: process.env.TEST_MODE === "true",
+    testMode: isTestMode(),
     message: "Notification Engine API is running"
   });
 });

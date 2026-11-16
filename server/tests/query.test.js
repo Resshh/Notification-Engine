@@ -1,7 +1,22 @@
+process.env.JWT_SECRET = process.env.JWT_SECRET || "query-test-secret";
+
 const request = require("supertest");
 const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
 const app = require("../app");
 const Query = require("../models/Query");
+
+const tokenFor = (role) => jwt.sign({ id: "672000000000000000000097", name: role, role }, process.env.JWT_SECRET);
+const adminAuth = `Bearer ${tokenFor("admin")}`;
+const userAuth = `Bearer ${tokenFor("user")}`;
+
+// Every request below is made as a logged-in admin.
+const api = {
+  get: (url) => request(app).get(url).set("Authorization", adminAuth),
+  post: (url) => request(app).post(url).set("Authorization", adminAuth),
+  put: (url) => request(app).put(url).set("Authorization", adminAuth),
+  delete: (url) => request(app).delete(url).set("Authorization", adminAuth),
+};
 
 // Story 5.1 - Query Management Tests (CRUD & Validation)
 // Ref: sub-tasks 132, 133, 140
@@ -15,8 +30,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
 
   describe("POST /api/queries (Create Query)", () => {
     test("rejects query creation when name is missing", async () => {
-      const response = await request(app)
-        .post("/api/queries")
+      const response = await api.post("/api/queries")
         .send({
           connectionId: fakeConnectionId,
           kind: "sql",
@@ -29,8 +43,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
     });
 
     test("rejects query creation when connectionId is missing", async () => {
-      const response = await request(app)
-        .post("/api/queries")
+      const response = await api.post("/api/queries")
         .send({
           name: "All Invoices",
           kind: "sql",
@@ -43,8 +56,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
     });
 
     test("rejects query creation when kind is invalid", async () => {
-      const response = await request(app)
-        .post("/api/queries")
+      const response = await api.post("/api/queries")
         .send({
           name: "Invalid Kind Query",
           connectionId: fakeConnectionId,
@@ -58,8 +70,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
     });
 
     test("blocks query creation if SQL contains disallowed operations (Story 5.3 integration)", async () => {
-      const response = await request(app)
-        .post("/api/queries")
+      const response = await api.post("/api/queries")
         .send({
           name: "Dangerous Drop Query",
           connectionId: fakeConnectionId,
@@ -93,8 +104,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
         updatedAt: new Date()
       });
 
-      const response = await request(app)
-        .post("/api/queries")
+      const response = await api.post("/api/queries")
         .send(validQuery);
 
       expect(response.status).toBe(201);
@@ -122,8 +132,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
         updatedAt: new Date()
       });
 
-      const response = await request(app)
-        .post("/api/queries")
+      const response = await api.post("/api/queries")
         .send(validOData);
 
       expect(response.status).toBe(201);
@@ -145,7 +154,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
         })
       });
 
-      const response = await request(app).get("/api/queries");
+      const response = await api.get("/api/queries");
 
       expect(response.status).toBe(200);
       expect(response.body.ok).toBe(true);
@@ -167,7 +176,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
         populate: jest.fn().mockResolvedValue(mockQuery)
       });
 
-      const response = await request(app).get(`/api/queries/${mockQuery._id}`);
+      const response = await api.get(`/api/queries/${mockQuery._id}`);
 
       expect(response.status).toBe(200);
       expect(response.body.ok).toBe(true);
@@ -179,7 +188,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
         populate: jest.fn().mockResolvedValue(null)
       });
 
-      const response = await request(app).get("/api/queries/nonexistent_id");
+      const response = await api.get("/api/queries/nonexistent_id");
 
       expect(response.status).toBe(404);
       expect(response.body.ok).toBe(false);
@@ -198,8 +207,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
 
       jest.spyOn(Query, "findById").mockResolvedValue(existingQuery);
 
-      const response = await request(app)
-        .put("/api/queries/query123")
+      const response = await api.put("/api/queries/query123")
         .send({ queryText: "DELETE FROM Invoices" });
 
       expect(response.status).toBe(400);
@@ -223,8 +231,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
 
       jest.spyOn(Query, "findById").mockResolvedValue(mockDoc);
 
-      const response = await request(app)
-        .put("/api/queries/query123")
+      const response = await api.put("/api/queries/query123")
         .send({
           name: "Updated Name",
           queryText: "SELECT InvoiceNo, Amount FROM Invoices"
@@ -243,7 +250,7 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
         name: "Deprecated Query"
       });
 
-      const response = await request(app).delete("/api/queries/query123");
+      const response = await api.delete("/api/queries/query123");
 
       expect(response.status).toBe(200);
       expect(response.body.ok).toBe(true);
@@ -253,12 +260,48 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
     test("returns 404 when deleting a non-existent query", async () => {
       jest.spyOn(Query, "findByIdAndDelete").mockResolvedValue(null);
 
-      const response = await request(app).delete("/api/queries/missing_id");
+      const response = await api.delete("/api/queries/missing_id");
 
       expect(response.status).toBe(404);
       expect(response.body.ok).toBe(false);
       expect(response.body.message).toContain("not found");
     });
+  });
+});
+
+describe("Query and report access control", () => {
+  test("not logged in: reading queries is refused (401)", async () => {
+    const response = await request(app).get("/api/queries");
+    expect(response.status).toBe(401);
+  });
+
+  test.each([
+    ["post", "/api/queries"],
+    ["put", "/api/queries/672000000000000000000001"],
+    ["delete", "/api/queries/672000000000000000000001"],
+    ["post", "/api/queries/672000000000000000000001/preview"],
+    ["post", "/api/query-preview/672000000000000000000001/preview"],
+    ["post", "/api/reports/generate"],
+  ])("normal user: %s %s is refused (403)", async (method, url) => {
+    const response = await request(app)[method](url).set("Authorization", userAuth).send({});
+    expect(response.status).toBe(403);
+  });
+
+  test("normal user can still read the saved queries list", async () => {
+    jest.spyOn(Query, "find").mockReturnValue({
+      populate: jest.fn().mockReturnThis(),
+      sort: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue([]),
+      then: (resolve) => resolve([]),
+    });
+    const response = await request(app).get("/api/queries").set("Authorization", userAuth);
+    expect(response.status).not.toBe(401);
+    expect(response.status).not.toBe(403);
+  });
+
+  test("not logged in: report download is refused (401)", async () => {
+    const response = await request(app).get("/api/reports/download/anything.csv");
+    expect(response.status).toBe(401);
   });
 });
 

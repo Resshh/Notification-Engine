@@ -1,5 +1,5 @@
 // Fills the database with login users and the 5 demo workflows (FR-20, FR-21).
-// The workflows use Batch 2's 5 saved queries, so seed/seed.js runs first (npm run seed does both).
+// The workflows use Batch 2's 5 saved queries, so run Batch 2's seed first: npm run seed, then npm run seed:batch1.
 // Safe to run again - it updates by name instead of duplicating.
 require('dotenv').config();
 const mongoose = require('mongoose');

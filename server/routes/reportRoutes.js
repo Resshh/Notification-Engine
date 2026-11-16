@@ -12,6 +12,7 @@ const path = require("path");
 const fs = require("fs");
 const { runQuery } = require("../core/runQuery");
 const { buildReport } = require("../reports/buildReport");
+const { requireAuth, requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ const router = express.Router();
  * POST /api/reports/generate
  * Executes a query by ID and generates a CSV or Excel report.
  */
-router.post("/generate", async (req, res, next) => {
+router.post("/generate", requireAdmin, async (req, res, next) => {
   try {
     const { queryId, format = "csv", params = {} } = req.body;
 
@@ -71,7 +72,7 @@ router.post("/generate", async (req, res, next) => {
  * GET /api/reports/download/:fileName
  * Downloads a previously generated report file from backend/reports/output/
  */
-router.get("/download/:fileName", (req, res, next) => {
+router.get("/download/:fileName", requireAuth, (req, res, next) => {
   try {
     const fileName = path.basename(req.params.fileName);
     const filePath = path.resolve(__dirname, "../reports/output", fileName);

@@ -20,6 +20,11 @@ function DashboardLayout() {
   const navigate = useNavigate()
   const [testMode, setTestMode] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const isAdmin = user?.role === 'admin'
+  // Same message style as the Job setup screen uses for normal users.
+  const adminOnly = (what) => (
+    <p className="notice notice-error" role="alert">Admins only. You don't have permission to {what}.</p>
+  )
 
   useEffect(() => {
     let active = true
@@ -100,15 +105,20 @@ function DashboardLayout() {
             Run History
           </NavLink>
 
-          <div className="sidebar-divider" />
+          {/* Connections and queries are admin settings (Common Guide: only admins change them) */}
+          {isAdmin && (
+            <>
+              <div className="sidebar-divider" />
 
-          <NavLink to="/connections">
-            Connections
-          </NavLink>
+              <NavLink to="/connections">
+                Connections
+              </NavLink>
 
-          <NavLink to="/queries">
-            Queries
-          </NavLink>
+              <NavLink to="/queries">
+                Queries
+              </NavLink>
+            </>
+          )}
         </nav>
       </aside>
 
@@ -119,8 +129,8 @@ function DashboardLayout() {
           <Route path="/jobs/:id" element={<JobSetup />} />
           <Route path="/recipients" element={<Recipients />} />
           <Route path="/templates" element={<Templates />} />
-          <Route path="/connections" element={<div className="batch2"><Connections /></div>} />
-          <Route path="/queries" element={<div className="batch2"><QuerySetup /></div>} />
+          <Route path="/connections" element={isAdmin ? <div className="batch2"><Connections /></div> : adminOnly('manage connections')} />
+          <Route path="/queries" element={isAdmin ? <div className="batch2"><QuerySetup /></div> : adminOnly('manage queries')} />
           <Route path="/history" element={<RunHistory />} />
         </Routes>
       </main>
