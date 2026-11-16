@@ -3,20 +3,10 @@
  * Story 1.4 | Sprint 1
  * Ref: Sub-task #38, FR-04, BR-07
  *
- * Populates req.user. In development, provides a stub admin user
- * until Batch 1 central authentication is integrated.
+ * Populates req.user from the login token (JWT).
  */
 
-const mongoose = require("mongoose");
-
-const DEFAULT_ADMIN_ID = new mongoose.Types.ObjectId("672000000000000000000001");
-
-const DEFAULT_ADMIN_USER = {
-  _id: DEFAULT_ADMIN_ID,
-  username: "admin",
-  email: "admin@notificationengine.local",
-  role: "admin"
-};
+const jwt = require("jsonwebtoken");
 
 function authMiddleware(req, res, next) {
   // If user is already set by upstream session/passport, preserve it
@@ -24,18 +14,14 @@ function authMiddleware(req, res, next) {
     return next();
   }
 
-  // Allow role override via header for testing
-  const roleHeader = req.headers["x-user-role"];
-  if (roleHeader) {
-    req.user = {
-      ...DEFAULT_ADMIN_USER,
-      role: roleHeader
-    };
-    return next();
+  // Otherwise use the login token; no valid token leaves req.user unset (adminOnly -> 401)
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  try {
+    const user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { ...user, _id: user.id };
+  } catch {
+    req.user = undefined;
   }
-
-  // Attach default admin user for development
-  req.user = { ...DEFAULT_ADMIN_USER };
   return next();
 }
 
@@ -44,7 +30,6 @@ module.exports = authMiddleware;
 // ---- Batch 1: real login checks (FR-01, FR-02, BR-08) ----
 // requireAuth: request must carry a valid login token.
 // requireAdmin: and the user must be an admin.
-const jwt = require("jsonwebtoken");
 
 function requireAuth(req, res, next) {
   const token = (req.headers.authorization || "").replace("Bearer ", "");

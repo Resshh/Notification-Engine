@@ -101,7 +101,6 @@ function DashboardLayout() {
             Run History
           </NavLink>
 
-          <div className="sidebar-divider" />
 
           <NavLink to="/connections">
             Connections

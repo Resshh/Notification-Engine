@@ -99,10 +99,10 @@ async function executeQuery(queryDoc, runtimeParams = {}, options = {}) {
 
     // ── Step 2: Decrypt the password ────────────────────────────────────────
     // Uses the ONE shared decrypt — never decrypted anywhere else (sub-task #77)
-    const plainPassword = decryptPassword(connectionDoc.passwordEncrypted);
+    const { passwordEncrypted, ...connectionFields } = connectionDoc;
     const connectionDetails = {
-      ...connectionDoc,
-      password: plainPassword,
+      ...connectionFields,
+      password: decryptPassword(passwordEncrypted),
     };
 
     // ── Step 3: Validate the query (shared validator — Joice's module) ───────
