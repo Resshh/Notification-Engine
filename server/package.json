@@ -15,7 +15,7 @@
     "seed:batch1": "node seed.js",
     "test": "jest --runInBand && npm run test:node",
     "test:watch": "jest --watch",
-    "test:node": "node --test tests/adminOnly.test.js tests/connectionController.test.js test/auth.test.js test/rules.test.js test/runner.test.js test/scheduler.test.js test/template.test.js engine/rules.test.js",
+    "test:node": "node --test tests/adminOnly.test.js tests/connectionController.test.js test/auth.test.js test/rules.test.js test/runner.test.js test/runJob.test.js test/scheduler.test.js test/template.test.js engine/rules.test.js",
     "test:integration": "node --test tests/connectionMongo.integration.test.js"
   },
   "jest": {

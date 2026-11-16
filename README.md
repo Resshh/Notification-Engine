@@ -113,10 +113,19 @@ cd server
 npm test   # all tests: Batch 2 (Jest) and then Batch 1 (node:test)
 ```
 
-They use mocks, so no database or email account is needed. Automated tests cover rule filtering,
-dedupe keys, retries (email server down), test mode, normal user blocked, missing placeholder
-(no crash) and disabled jobs not being scheduled. Show "run the same job twice" (second run skips
-duplicates) and "no matching rows" (0 sent) live with **Run now** and **Run History**.
+They use mocks, so no database or email account is needed. All 8 test cases from the Batch 1 guide
+are automated:
+
+| Guide test case | Test file |
+|---|---|
+| Job with matching rows: emails sent, log shows success | `test/runJob.test.js` |
+| Job with no matching rows: no emails, log shows 0 sent | `test/runJob.test.js` |
+| Same job run twice: second run sends nothing | `test/runJob.test.js` |
+| Email server down: retried, failure logged | `test/runJob.test.js`, `test/runner.test.js` |
+| Test mode on: email goes only to the test address | `test/runner.test.js` |
+| Normal user opens an admin page: blocked | `test/auth.test.js`, `tests/query.test.js` |
+| Missing placeholder value: empty value, no crash | `test/template.test.js` |
+| Disabled job: scheduler does not run it | `test/scheduler.test.js` |
 
 ## Folders
 
