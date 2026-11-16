@@ -1,127 +1,82 @@
+
 import { useEffect, useState } from 'react'
-import {
-  NavLink,
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-} from 'react-router-dom'
+import { NavLink, Route, Routes, Navigate, useNavigate } from 'react-router-dom'
 
-import { useAuth } from './context/AuthContext.jsx'
-import Connections from './pages/Connections.jsx'
-import JobSetup from './pages/JobSetup.jsx'
-import Jobs from './pages/Jobs.jsx'
 import Login from './pages/Login.jsx'
-import QuerySetup from './pages/QuerySetup.jsx'
+import Jobs from './pages/Jobs.jsx'
+import JobSetup from './pages/JobSetup.jsx'
 import Recipients from './pages/Recipients.jsx'
-import RunHistory from './pages/RunHistory.jsx'
 import Templates from './pages/Templates.jsx'
+import Connections from './pages/Connections.jsx'
+import QuerySetup from './pages/QuerySetup.jsx'
+import RunHistory from './pages/RunHistory.jsx'
 
-const navigation = [
-  { to: '/', label: 'Job Dashboard', icon: 'dashboard', end: true },
-  { to: '/recipientslist', label: 'Recipient Lists', icon: 'users' },
-  { to: '/templates', label: 'Templates', icon: 'file' },
-  { to: '/history', label: 'Run History', icon: 'history' },
-  { to: '/connections', label: 'Connections', icon: 'connection' },
-  { to: '/queries', label: 'Queries', icon: 'search' },
-]
+import ProtectedRoute from './components/ProtectedRoute.jsx'
+import { useAuth } from './context/AuthContext.jsx'
+import { api } from './api.js'
 
-function SidebarIcon({ name }) {
-  const paths = {
-    dashboard: 'M3 3h8v8H3z M13 3h8v5h-8z M13 10h8v11h-8z M3 13h8v8H3z',
-    users: 'M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M20 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
-    file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M8 13h8 M8 17h8',
-    history: 'M3 12a9 9 0 1 0 2.64-6.36L3 8 M3 3v5h5 M12 7v5l3 2',
-    connection: 'M8 7v5a4 4 0 0 0 8 0V7 M6 3v4 M10 3v4 M14 3v4 M18 3v4 M12 16v5',
-    search: 'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M21 21l-6-6',
-  }
-
-  return (
-    <svg
-      className="nav-icon"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d={paths[name]} />
-    </svg>
-  )
-}
-
-export default function App() {
-  const { user, logout, isAuthenticated } = useAuth()
-  const location = useLocation()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [testMode, setTestMode] = useState(false)
+function DashboardLayout() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [testMode, setTestMode] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
     let active = true
 
-    async function checkHealth() {
+    async function loadHealth() {
       try {
-        const response = await fetch('/api/health')
-
-        if (!response.ok) {
-          throw new Error('Health check failed')
-        }
-
-        const data = await response.json()
-
-        if (active) {
-          setTestMode(data.testMode === true)
-        }
-      } catch (error) {
-        console.error('Health check error:', error)
+        const response = await api('/health')
+        if (active) setTestMode(response.testMode)
+      } catch {
+        if (active) setTestMode(null)
       }
     }
 
-    checkHealth()
+    loadHealth()
 
     return () => {
       active = false
     }
   }, [])
 
-  if (location.pathname === '/login') {
-    return isAuthenticated ? <Navigate to="/" replace /> : <Login />
+  function handleLogout() {
+    logout()
+    navigate('/login', { replace: true })
   }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
-
-  const isAdmin = user?.role === 'admin'
 
   return (
-    <div className={`layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <div className={`layout ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
       <header className="app-header">
         <div className="header-brand">
           <button
-            type="button"
-            className="hamburger-button"
-            onClick={() => setSidebarCollapsed((previous) => !previous)}
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!sidebarCollapsed}
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <span aria-hidden="true">☰</span>
-          </button>
-          <span className="brand-mark">NE</span>
+  type="button"
+  className="menu-toggle"
+  onClick={() => setSidebarOpen((previous) => !previous)}
+  aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+  aria-expanded={sidebarOpen}
+>
+  ☰
+</button>
           <strong>Notification Engine</strong>
         </div>
 
         <div className="header-account">
-          <span className={`test-mode-badge ${testMode ? '' : 'test-mode-off'}`}>
-            TEST MODE: {testMode ? 'ON' : 'OFF'}
-          </span>
+          {testMode === true && (
+            <span className="test-mode-badge">TEST MODE: ON</span>
+          )}
+
+          {testMode === false && (
+            <span className="test-mode-badge test-mode-off">
+              TEST MODE: OFF
+            </span>
+          )}
+
           <span className="account-name">
-            {user?.name} ({user?.role})
+            {user?.name || 'User'} ({user?.role || 'user'})
           </span>
-          <button type="button" className="logout-button" onClick={logout}>
+
+          <button className="logout-button" onClick={handleLogout}>
             Log out
           </button>
         </div>
@@ -129,36 +84,60 @@ export default function App() {
 
       <aside className="app-sidebar">
         <nav className="sidebar-navigation">
-          {navigation.map(({ to, label, icon, end }) => (
-            <div key={to}>
-              <NavLink to={to} end={end} title={label}>
-                <SidebarIcon name={icon} />
-                <span className="nav-label">{label}</span>
-              </NavLink>
-            </div>
-          ))}
+          <NavLink to="/" end>
+            Job Dashboard
+          </NavLink>
+
+          <NavLink to="/recipients">
+            Recipient Lists
+          </NavLink>
+
+          <NavLink to="/templates">
+            Templates
+          </NavLink>
+
+          <NavLink to="/history">
+            Run History
+          </NavLink>
+
+          <div className="sidebar-divider" />
+
+          <NavLink to="/connections">
+            Connections
+          </NavLink>
+
+          <NavLink to="/queries">
+            Queries
+          </NavLink>
         </nav>
       </aside>
 
       <main className="app-content">
         <Routes>
           <Route path="/" element={<Jobs />} />
-          <Route
-            path="/jobs/new"
-            element={isAdmin ? <JobSetup /> : <h2>Admins only</h2>}
-          />
-          <Route
-            path="/jobs/:id"
-            element={isAdmin ? <JobSetup /> : <h2>Admins only</h2>}
-          />
-          <Route path="/recipientslist" element={<Recipients />} />
-          <Route path="/history" element={<RunHistory />} />
+          <Route path="/jobs/new" element={<JobSetup />} />
+          <Route path="/jobs/:id" element={<JobSetup />} />
+          <Route path="/recipients" element={<Recipients />} />
           <Route path="/templates" element={<Templates />} />
-          <Route path="/connections" element={<Connections />} />
-          <Route path="/queries" element={<QuerySetup />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/connections" element={<div className="batch2"><Connections /></div>} />
+          <Route path="/queries" element={<div className="batch2"><QuerySetup /></div>} />
+          <Route path="/history" element={<RunHistory />} />
         </Routes>
       </main>
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+
+      <Route element={<ProtectedRoute />}>
+        <Route path="/*" element={<DashboardLayout />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
   )
 }

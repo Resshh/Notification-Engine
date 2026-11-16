@@ -1,156 +1,87 @@
-import { useEffect, useMemo, useState } from 'react'
+// Screen 6 - Run History and Delivery Logs (FR-17, FR-18)
+import { useEffect, useState } from 'react'
 import { api } from '../api.js'
-import './RunHistory.css'
 
-function formatDate(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
-}
-
-function dateKey(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day}`
-}
-
-function resultLabel(status = '') {
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
+const formatDate = (value) => (value ? new Date(value).toLocaleString() : '—')
 
 export default function RunHistory() {
-  const [runs, setRuns] = useState([])
   const [jobs, setJobs] = useState([])
+  const [runs, setRuns] = useState([])
+  const [filters, setFilters] = useState({ job: '', status: '', from: '', to: '' })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [reloadToken, setReloadToken] = useState(0)
-  const [jobFilter, setJobFilter] = useState('')
-  const [resultFilter, setResultFilter] = useState('')
-  const [fromDate, setFromDate] = useState('')
-  const [toDate, setToDate] = useState('')
-  const [expandedRunId, setExpandedRunId] = useState('')
-  const [deliveryLogs, setDeliveryLogs] = useState([])
-  const [deliveryLoading, setDeliveryLoading] = useState(false)
-  const [deliveryError, setDeliveryError] = useState('')
+  const [openRun, setOpenRun] = useState(null)
+  const [logs, setLogs] = useState([])
 
   useEffect(() => {
+    api('/jobs').then((data) => setJobs(data.jobs || [])).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(Object.entries(filters).filter(([, v]) => v))
     let active = true
-
-    async function loadHistory() {
-      try {
-        const data = await api('/run-history')
-        if (active) {
-          setRuns(Array.isArray(data.runs) ? data.runs : [])
-          setJobs(Array.isArray(data.jobs) ? data.jobs : [])
-          setError('')
-        }
-      } catch (loadError) {
-        if (active) {
-          setError(loadError.message || 'Unable to load run history.')
-        }
-      } finally {
-        if (active) {
-          setLoading(false)
-        }
-      }
-    }
-
-    loadHistory()
+    api(`/runs?${params}`)
+      .then((data) => active && (setRuns(data.runs || []), setError('')))
+      .catch((err) => active && setError(err.message))
+      .finally(() => active && setLoading(false))
     return () => {
       active = false
     }
-  }, [reloadToken])
+  }, [filters])
 
-  const filteredRuns = useMemo(() => runs.filter((run) => {
-    if (jobFilter && run.jobId !== jobFilter) return false
-    if (resultFilter && run.status !== resultFilter) return false
-
-    const key = dateKey(run.startTime)
-    if (fromDate && key < fromDate) return false
-    if (toDate && key > toDate) return false
-    return true
-  }), [runs, jobFilter, resultFilter, fromDate, toDate])
-
-  async function toggleRun(run) {
-    if (expandedRunId === run.id) {
-      setExpandedRunId('')
-      setDeliveryLogs([])
-      setDeliveryError('')
-      return
-    }
-
-    setExpandedRunId(run.id)
-    setDeliveryLogs([])
-    setDeliveryError('')
-    setDeliveryLoading(true)
+  async function showLogs(run) {
+    if (openRun?._id === run._id) return setOpenRun(null)
+    setOpenRun(run)
+    setLogs([])
     try {
-      const data = await api(`/run-history/${encodeURIComponent(run.id)}/deliveries`)
-      setDeliveryLogs(Array.isArray(data.deliveryLogs) ? data.deliveryLogs : [])
-    } catch (loadError) {
-      setDeliveryError(loadError.message || 'Unable to load delivery log.')
-    } finally {
-      setDeliveryLoading(false)
+      setLogs((await api(`/runs/${run._id}/logs`)).logs || [])
+    } catch (err) {
+      setError(err.message)
     }
   }
 
-  function retryLoad() {
-    setLoading(true)
-    setReloadToken((token) => token + 1)
-  }
+  const setFilter = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value }))
 
   return (
-    <section className="run-history-page">
-      <header className="run-history-heading">
+    <section className="jobs-page">
+      <div className="jobs-page-heading">
         <div>
           <h1>Run history</h1>
-          <p>Every run and email sent is recorded. Click a run to see its delivery log.</p>
+          <p>Every run and every email it sent. Click a run to see its delivery log.</p>
         </div>
-        <button type="button" className="run-history-refresh" onClick={retryLoad}>
-          Refresh
-        </button>
-      </header>
+      </div>
 
-      <section className="run-history-filters" aria-label="Filter run history">
-        <label>
-          Job
-          <select value={jobFilter} onChange={(event) => setJobFilter(event.target.value)}>
+      {error && <p className="notice notice-error" role="alert">{error}</p>}
+
+      <div className="jobs-toolbar">
+        <div className="jobs-filter">
+          <label htmlFor="run-job">Job</label>
+          <select id="run-job" value={filters.job} onChange={setFilter('job')}>
             <option value="">All jobs</option>
-            {jobs.map((job) => (
-              <option key={job.id} value={job.id}>{job.name}</option>
-            ))}
+            {jobs.map((j) => <option key={j._id} value={j._id}>{j.name}</option>)}
           </select>
-        </label>
-        <label>
-          Result
-          <select value={resultFilter} onChange={(event) => setResultFilter(event.target.value)}>
+        </div>
+        <div className="jobs-filter">
+          <label htmlFor="run-status">Result</label>
+          <select id="run-status" value={filters.status} onChange={setFilter('status')}>
             <option value="">All results</option>
             <option value="success">Success</option>
             <option value="failed">Failed</option>
             <option value="running">Running</option>
           </select>
-        </label>
-        <label>
-          From
-          <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
-        </label>
-        <label>
-          To
-          <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
-        </label>
-      </section>
-
-      {error && (
-        <div className="run-history-error" role="alert">
-          <span>{error}</span>
-          <button type="button" onClick={retryLoad}>Try again</button>
         </div>
-      )}
+        <div className="jobs-filter">
+          <label htmlFor="run-from">From</label>
+          <input id="run-from" type="date" value={filters.from} onChange={setFilter('from')} />
+        </div>
+        <div className="jobs-filter">
+          <label htmlFor="run-to">To</label>
+          <input id="run-to" type="date" value={filters.to} onChange={setFilter('to')} />
+        </div>
+      </div>
 
-      <div className="run-history-table-wrap">
-        <table className="run-history-table">
+      <div className="jobs-table-container">
+        <table className="jobs-table">
           <thead>
             <tr>
               <th>Start</th>
@@ -166,116 +97,54 @@ export default function RunHistory() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="9" className="run-history-empty">Loading run history…</td></tr>
-            ) : filteredRuns.length === 0 ? (
-              <tr>
-                <td colSpan="9" className="run-history-empty">
-                  {runs.length ? 'No runs match these filters.' : 'No runs have been recorded yet.'}
-                </td>
-              </tr>
-            ) : filteredRuns.map((run) => (
-              <FragmentRunRow
-                key={run.id}
-                run={run}
-                expanded={expandedRunId === run.id}
-                deliveryLogs={deliveryLogs}
-                deliveryLoading={deliveryLoading}
-                deliveryError={deliveryError}
-                onToggle={() => toggleRun(run)}
-              />
+              <tr><td colSpan="9" className="jobs-table-empty">Loading runs...</td></tr>
+            ) : runs.length === 0 ? (
+              <tr><td colSpan="9" className="jobs-table-empty">No runs match these filters.</td></tr>
+            ) : runs.map((run) => (
+              <RunRow key={run._id} run={run} open={openRun?._id === run._id} logs={logs} onClick={() => showLogs(run)} />
             ))}
           </tbody>
         </table>
       </div>
-      <p className="run-history-count">
-        Showing {filteredRuns.length} of {runs.length} runs
-      </p>
     </section>
   )
 }
 
-function FragmentRunRow({
-  run,
-  expanded,
-  deliveryLogs,
-  deliveryLoading,
-  deliveryError,
-  onToggle,
-}) {
+function RunRow({ run, open, logs, onClick }) {
   return (
     <>
-      <tr
-        className="run-history-row"
-        onClick={onToggle}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            onToggle()
-          }
-        }}
-        tabIndex={0}
-        aria-expanded={expanded}
-      >
+      <tr className="clickable-row" onClick={onClick} aria-expanded={open}>
         <td>{formatDate(run.startTime)}</td>
         <td>{formatDate(run.endTime)}</td>
-        <td>
-          {run.jobName}
-          {run.manual && <span className="run-history-manual">Run now</span>}
-        </td>
-        <td>{run.rowsFetched ?? 0}</td>
-        <td>{run.rowsMatched ?? 0}</td>
-        <td>{run.emailsSent ?? 0}</td>
-        <td>{run.skippedDuplicates ?? 0}</td>
-        <td>{run.failed ?? 0}</td>
-        <td>
-          <span className={`run-history-result result-${run.status}`}>
-            {resultLabel(run.status)}
-          </span>
-        </td>
+        <td>{run.jobName}{run.manual && <span className="tag">Run now</span>}</td>
+        <td>{run.rowsFetched}</td>
+        <td>{run.rowsMatched}</td>
+        <td>{run.emailsSent}</td>
+        <td>{run.skippedDuplicates}</td>
+        <td>{run.failed}</td>
+        <td><span className={`run-status ${run.status}`}>{run.status}</span></td>
       </tr>
-      {expanded && (
-        <tr className="run-history-details-row">
+      {open && (
+        <tr className="log-row">
           <td colSpan="9">
-            {deliveryLoading ? (
-              <p className="run-history-empty">Loading delivery log…</p>
-            ) : deliveryError ? (
-              <p className="run-history-detail-error" role="alert">{deliveryError}</p>
-            ) : deliveryLogs.length === 0 ? (
-              <p className="run-history-empty">No delivery records for this run.</p>
-            ) : (
-              <div className="run-history-deliveries">
-                <h2>Delivery log</h2>
-                <div className="run-history-table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Time</th>
-                        <th>Recipient</th>
-                        <th>Subject</th>
-                        <th>Status</th>
-                        <th>Retries</th>
-                        <th>Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {deliveryLogs.map((log) => (
-                        <tr key={log.id}>
-                          <td>{formatDate(log.createdAt)}</td>
-                          <td>{log.recipient || '—'}</td>
-                          <td>{log.subject || '—'}</td>
-                          <td>
-                            <span className={`run-history-result result-${log.status}`}>
-                              {resultLabel(log.status)}
-                            </span>
-                          </td>
-                          <td>{log.retryCount ?? 0}</td>
-                          <td>{log.errorMessage || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            {run.error && <p className="notice notice-error">Run error: {run.error}</p>}
+            {logs.length === 0 ? <p>No emails in this run.</p> : (
+              <table className="log-table">
+                <thead>
+                  <tr><th>Recipient</th><th>Subject</th><th>Status</th><th>Retries</th><th>Error</th></tr>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <tr key={log._id}>
+                      <td>{log.recipient || '—'}</td>
+                      <td>{log.subject}</td>
+                      <td><span className={`run-status ${log.status}`}>{log.status}</span></td>
+                      <td>{log.retryCount}</td>
+                      <td>{log.errorMessage || ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </td>
         </tr>
