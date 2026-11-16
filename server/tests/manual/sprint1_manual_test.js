@@ -11,7 +11,6 @@
  *  4. Full pipeline    — mock query → format → build CSV report (end-to-end)
  */
 
-const path = require("path");
 const fs   = require("fs");
 
 (async () => {  // ← wrap everything in async IIFE (project uses CommonJS, not ESM)
@@ -19,7 +18,6 @@ const fs   = require("fs");
 // ─── Colour helpers (no external deps) ───────────────────────────────────────
 const G  = (s) => `\x1b[32m✅ ${s}\x1b[0m`;
 const R  = (s) => `\x1b[31m❌ ${s}\x1b[0m`;
-const Y  = (s) => `\x1b[33m⚠️  ${s}\x1b[0m`;
 const H  = (s) => `\n\x1b[1m\x1b[36m━━━ ${s} ━━━\x1b[0m`;
 
 let passed = 0, failed = 0;
@@ -109,7 +107,7 @@ try {
 // ─── 2. FORMATTER ────────────────────────────────────────────────────────────
 console.log(H("2. Common Data Formatter (Story 6.1)"));
 
-const { formatResult, applyColumnMapping, isValidRaw } = require("../../core/formatter");
+const { formatResult } = require("../../core/formatter");
 
 try {
   const raw = { columns: ["InvoiceNo","Amount"], rows: [["INV-001",5000]] };

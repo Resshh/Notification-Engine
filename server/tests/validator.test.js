@@ -1,5 +1,4 @@
 const {
-  validateQuerySafety,
   validateSqlQuery,
   validateODataRequest,
   validateQueryParams

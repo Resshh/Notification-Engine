@@ -55,6 +55,7 @@ async function runQuery(queryId, runtimeParams = {}) {
   } catch (err) {
     // Always sanitise errors before they leave this module (FR-18)
     const safe = sanitizeError(err);
+    // eslint-disable-next-line preserve-caught-error -- on purpose: the original error may hold passwords/hostnames (FR-18)
     throw new Error(safe.message);
   }
 }

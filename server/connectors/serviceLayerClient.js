@@ -86,7 +86,8 @@ function applyFilter(records, filterStr) {
  * @param {object} options
  * @returns {Promise<{ columns: string[], rows: any[][] }>}
  */
-async function executeQuery(connectionDetails, queryDoc, params = {}, options = {}) {
+// ponytail: the mock ignores runtime params; apply them here if a Service Layer query ever saves some
+async function executeQuery(_connectionDetails, queryDoc, _params = {}, options = {}) {
   const entity = queryDoc.entity || "Invoices";
   const records = loadEntityData(entity);
 
@@ -119,7 +120,7 @@ async function executeQuery(connectionDetails, queryDoc, params = {}, options = 
  * @param {object} connectionDetails
  * @returns {Promise<{ ok: boolean, message: string }>}
  */
-async function testConnection(connectionDetails) {
+async function testConnection(_connectionDetails) {
   return { ok: true, message: "SAP Business One Service Layer connection verified successfully." };
 }
 

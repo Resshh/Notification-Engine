@@ -4,8 +4,6 @@
  */
 
 const { testConnection } = require("../connectors/index");
-const Connection = require("../models/Connection");
-const { encryptPassword } = require("../security/crypto");
 
 describe("Story 1.3 - Test Database Connections", () => {
   beforeAll(() => {

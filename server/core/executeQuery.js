@@ -19,7 +19,6 @@ const { validateQuerySafety } = require("../security/validator");
 const { sanitizeError }       = require("../security/sanitiser");
 const { formatResult }        = require("./formatter");
 const Connection              = require("../models/Connection");
-const Query                   = require("../models/Query");
 
 // ── Connector registry ────────────────────────────────────────────────────────
 // Each connector is loaded lazily so the server starts even if one is missing.
@@ -148,6 +147,7 @@ async function executeQuery(queryDoc, runtimeParams = {}, options = {}) {
   } catch (err) {
     // Sanitise before returning — no passwords or hostnames leak (FR-18)
     const safe = sanitizeError(err);
+    // eslint-disable-next-line preserve-caught-error -- on purpose: the original error may hold passwords/hostnames (FR-18)
     throw new Error(safe.message);
   }
 }

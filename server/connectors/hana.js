@@ -176,6 +176,7 @@ async function executeQuery(connectionDetails, queryDoc, mergedParams, options =
 
   } catch (err) {
     const safe = sanitizeError(err);
+    // eslint-disable-next-line preserve-caught-error -- on purpose: the original error may hold passwords/hostnames (FR-18)
     throw new Error(`HANA execution failed: ${safe.message}`);
   }
 }

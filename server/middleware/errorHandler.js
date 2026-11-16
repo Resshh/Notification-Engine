@@ -4,7 +4,8 @@ const { sanitizeError } = require("../security/sanitiser");
 // Uses the security error sanitizer to ensure driver traces, passwords, or customer data
 // are never exposed in error responses (Ref: FR-18, NFR-07).
 
-function errorHandler(err, req, res, next) {
+// Express only treats a handler as an error handler when it takes 4 arguments, so _next must stay.
+function errorHandler(err, req, res, _next) {
   const statusCode = err.statusCode || (res.statusCode !== 200 ? res.statusCode : 500);
 
   // Sanitize the error message to remove any sensitive details

@@ -155,7 +155,7 @@ function query(sql, params = [], limit = 1000) {
   try {
     rawRows = alasql(normalisedSql, params);
   } catch (err) {
-    throw new Error(`HANA Mock SQL error: ${err.message}`);
+    throw new Error(`HANA Mock SQL error: ${err.message}`, { cause: err });
   }
 
   if (!rawRows || !Array.isArray(rawRows) || rawRows.length === 0) {

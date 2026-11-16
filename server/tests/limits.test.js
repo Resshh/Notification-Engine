@@ -4,9 +4,6 @@
  */
 
 const {
-  DEFAULT_QUERY_TIMEOUT_MS,
-  MAX_ROW_LIMIT_CAP,
-  DEFAULT_ROW_LIMIT,
   QueryTimeoutError,
   RowLimitExceededError,
   getLimitsConfig,

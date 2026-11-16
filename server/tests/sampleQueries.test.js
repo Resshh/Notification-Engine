@@ -22,7 +22,6 @@ const Connection = require("../models/Connection");
 const { encryptPassword } = require("../security/crypto");
 
 const {
-  SAMPLE_QUERIES,
   getSampleQueries,
   getSampleQueryByName
 } = require("../sampleQueries/sampleQueries");

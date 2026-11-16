@@ -11,11 +11,9 @@
  */
 
 const fs = require("fs");
-const path = require("path");
 const ExcelJS = require("exceljs");
 
 const { runQuery } = require("../core/runQuery");
-const { executeQuery } = require("../core/executeQuery");
 const { buildReport } = require("../reports/buildReport");
 const Query = require("../models/Query");
 const Connection = require("../models/Connection");

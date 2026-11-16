@@ -226,7 +226,7 @@ async function executeQuery(connectionDetails, queryDoc, params = {}, options = 
 
     return { columns, rows };
   } catch (err) {
-    throw new Error(`SQL Server query error: ${err.message}`);
+    throw new Error(`SQL Server query error: ${err.message}`, { cause: err });
   }
 }
 

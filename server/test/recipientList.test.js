@@ -15,7 +15,7 @@ app.use(express.json())
 app.use('/api/recipient-lists', recipientListRouter)
 
 // Error handler for unexpected errors
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error',
   })
@@ -67,7 +67,7 @@ async function makeRequest(method, path, body, token) {
         })
 
         res.on('end', () => {
-          let parsedData = {}
+          let parsedData
 
           try {
             parsedData = responseData

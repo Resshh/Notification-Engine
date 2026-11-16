@@ -110,7 +110,11 @@ The server enforces all of this; the screens only hide what the server would ref
 
 ```bash
 cd server
-npm test   # all tests: Batch 2 (Jest) and then Batch 1 (node:test)
+npm test       # all tests: Batch 2 (Jest) and then Batch 1 (node:test)
+npm run lint   # code checks (unused variables, duplicate imports, etc.)
+
+cd ../client
+npm run lint   # code checks for the React app
 ```
 
 They use mocks, so no database or email account is needed. All 8 test cases from the Batch 1 guide
