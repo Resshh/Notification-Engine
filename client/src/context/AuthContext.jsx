@@ -7,14 +7,14 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('user')) || null
+      return JSON.parse(sessionStorage.getItem('user')) || null
     } catch {
       return null
     }
   })
 
   const [token, setToken] = useState(
-    () => localStorage.getItem('token') || ''
+    () => sessionStorage.getItem('token') || ''
   )
 
   const isAuthenticated = Boolean(token && user)
@@ -25,8 +25,8 @@ export function AuthProvider({ children }) {
       body: { email, password },
     })
 
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('user', JSON.stringify(data.user))
+    sessionStorage.setItem('token', data.token)
+    sessionStorage.setItem('user', JSON.stringify(data.user))
 
     setToken(data.token)
     setUser(data.user)
@@ -35,8 +35,8 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('user')
 
     setToken('')
     setUser(null)
