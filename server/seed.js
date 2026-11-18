@@ -10,11 +10,13 @@ const users = [
   { name: 'Admin User', email: 'admin@test.com', role: 'admin' },
   { name: 'Normal User', email: 'user@test.com', role: 'user' },
 ];
+// Public Yopmail test inboxes, so the demo can open each one at yopmail.com and show who got what.
+// Never put real people's addresses here.
 const lists = [
-  { name: 'Finance Team', emails: ['finance@test.com'], cc: ['accounts.head@test.com'], bcc: [] },
-  { name: 'Sales Management', emails: ['sales.head@test.com', 'sales.manager@test.com'], cc: [], bcc: [] },
-  { name: 'Purchase Team', emails: ['purchase@test.com'], cc: [], bcc: [] },
-  { name: 'Store Managers', emails: ['kochi.store@test.com', 'tvm.store@test.com'], cc: [], bcc: [] },
+  { name: 'Finance Team', emails: ['nedemo-finance-team@yopmail.com'], cc: ['nedemo-accounts-head@yopmail.com'], bcc: [] },
+  { name: 'Sales Management', emails: ['nedemo-sales-head@yopmail.com', 'nedemo-sales-manager@yopmail.com'], cc: [], bcc: [] },
+  { name: 'Purchase Team', emails: ['nedemo-purchase-team@yopmail.com'], cc: [], bcc: [] },
+  { name: 'Store Managers', emails: ['nedemo-kochi-store@yopmail.com', 'nedemo-tvm-store@yopmail.com'], cc: [], bcc: [] },
 ];
 
 // Placeholders match the columns of Batch 2's saved queries (sampleQueries/sampleQueries.js).
@@ -54,7 +56,7 @@ const jobs = [
     recipients: { from: 'column', column: 'Email', cc: [], bcc: [] } },
   { name: 'PO Follow-up', query: 'Purchase Orders Past Promised Date', template: 'PO Follow-up', mode: 'message',
     rule: [{ column: 'Status', op: '!=', value: 'Closed' }], schedule: daily('10:30'),
-    recipients: { from: 'column', column: 'Email', cc: ['purchase@test.com'], bcc: [] } },
+    recipients: { from: 'column', column: 'Email', cc: ['nedemo-purchase-team@yopmail.com'], bcc: [] } },
   { name: 'Low Stock Alert', query: 'Items Below Reorder Level', template: 'Low Stock Alert', mode: 'message',
     rule: [], schedule: daily('08:00'), // the query already returns only items below reorder level
     recipients: { from: 'list', list: 'Store Managers', cc: [], bcc: [] } },
