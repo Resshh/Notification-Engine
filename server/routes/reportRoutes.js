@@ -4,7 +4,7 @@
  *
  * Endpoints:
  *   POST /api/reports/generate
- *   Body: { queryId: string, format: "csv" | "xlsx", params?: object }
+ *   Body: { queryId: string, format: "csv" | "xlsx" | "pdf", params?: object }
  */
 
 const express = require("express");
@@ -32,10 +32,10 @@ router.post("/generate", requireAdmin, async (req, res, next) => {
     }
 
     const normalizedFormat = String(format).toLowerCase();
-    if (!["csv", "xlsx"].includes(normalizedFormat)) {
+    if (!["csv", "xlsx", "pdf"].includes(normalizedFormat)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid format. Supported formats are 'csv' and 'xlsx'."
+        message: "Invalid format. Supported formats are 'csv', 'xlsx' and 'pdf'."
       });
     }
 

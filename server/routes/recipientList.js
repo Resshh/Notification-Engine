@@ -1,6 +1,6 @@
 const router = require('express').Router()
 const mongoose = require('mongoose')
-const { RecipientList } = require('../models')
+const { RecipientList, Job } = require('../models')
 const { requireAuth, requireAdmin } = require('../middleware/auth')
 
 // Email validation
@@ -154,6 +154,13 @@ router.delete('/:id', requireAdmin, async (req, res, next) => {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({
         error: 'Invalid recipient list ID.',
+      })
+    }
+
+    const jobs = await Job.find({ 'recipients.listId': req.params.id }, 'name').lean()
+    if (jobs.length) {
+      return res.status(409).json({
+        error: `Cannot delete this list: used by job(s) ${jobs.map((j) => j.name).join(', ')}. Change those jobs first.`,
       })
     }
 

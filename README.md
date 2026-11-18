@@ -21,7 +21,8 @@ emails or reports on a schedule, without sending duplicates, and logs every run 
 ## Setup
 
 Requires Node.js 20+ and a MongoDB database (local or Atlas). No real SQL Server, SAP HANA or
-SAP Service Layer is needed: the connectors fall back to the mock data in `mock-data/`.
+SAP Service Layer is needed: SQL Server and HANA fall back to the mock data in `mock-data/`, and a
+mock Service Layer server starts with the API (see [Mock SAP Service Layer](#mock-sap-service-layer)).
 
 ### 1. Install
 
@@ -38,11 +39,12 @@ Copy `server/.env.example` to `server/.env` and fill it in. Never commit `.env`.
 |---|---|
 | `MONGO_URI` | MongoDB connection string |
 | `JWT_SECRET` | Any long random text, used to sign logins |
-| `ENCRYPTION_KEY` | 64 hex characters, encrypts saved connection passwords. Generate one: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `ENCRYPTION_KEY` | 64 hex characters, encrypts saved connection passwords. **The whole team must use the same key** (the database is shared), or saved connections fail with "Unable to decrypt password". `npm run seed` refuses to run without it. Generate one: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `SEED_PASSWORD` | Password for the demo logins (default `Test@123`) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Email account. Leave `SMTP_USER` empty to build emails without sending them |
 | `TEST_MODE`, `TEST_EMAIL` | See [Test mode](#test-mode) |
 | `QUERY_TIMEOUT_MS`, `MAX_ROW_LIMIT_CAP` | Query time limit and row cap (defaults 30000 and 1000) |
+| `START_MOCK_SERVICE_LAYER` | `false` stops the API from starting the mock Service Layer (use when testing against the real SAP test system) |
 
 ### 3. Load the demo data (run in this order)
 
@@ -68,6 +70,29 @@ cd client && npm run dev    # App on http://localhost:5173
 | `admin@test.com` | `SEED_PASSWORD` (default `Test@123`) | Admin: can change everything |
 | `user@test.com` | same | User: read-only |
 
+### Mock SAP Service Layer
+
+`server/mock-service-layer/server.js` is a small Express app that behaves like SAP Business One
+Service Layer. `npm run dev` starts it on port 50000; to run it alone: `cd server && npm run mock:sl`.
+
+| Request | What it does |
+|---|---|
+| `POST /b1s/v1/Login` `{ CompanyDB, UserName, Password }` | Returns a session (`B1SESSION` cookie). Wrong details give 401 |
+| `GET /b1s/v1/Invoices`, `/PurchaseOrders`, `/Items` | Data from `mock-data/demo/`. Supports `$filter` (`eq ne gt ge lt le`, joined with `and`), `$select`, `$top`, `$skip` |
+| Paging | 20 records per page; `odata.nextLink` points to the next page |
+| Session timeout | 30 minutes of no use (`MOCK_SL_SESSION_TIMEOUT_MS`); then 401 |
+| Anything else | Refused: the mock is read only |
+
+Mock login (matches the seeded "Mock Service Layer" connection): company `SBODemoIN`, user `manager`,
+password `Password123!` (override with `MOCK_SL_COMPANY`, `MOCK_SL_USER`, `MOCK_SL_PASSWORD`).
+
+The client (`server/connectors/serviceLayerClient.js`) logs in, follows `odata.nextLink` until the
+row limit, and when the session expires logs in again and retries once. **Switching to the real SAP
+test system needs only the connection settings**: host, port, company database, username and
+password, plus `START_MOCK_SERVICE_LAYER=false`. Every host except `localhost` uses HTTPS with
+certificate checks on; for a self-signed test certificate set `NODE_EXTRA_CA_CERTS` to the
+certificate file from your mentor (never switch the checks off).
+
 ## Test mode
 
 While developing and in the demo, test mode stays **on** (ICTAK rule: never send to real addresses).
@@ -88,8 +113,8 @@ While developing and in the demo, test mode stays **on** (ICTAK rule: never send
 | Payment Reminder | One email per invoice | Overdue Invoices | `DaysOverdue > 7` | `Email` column | Daily 10:00 |
 | PO Follow-up | One email per PO | Purchase Orders Past Promised Date | `Status != Closed` | `Email` column, CC Purchase | Daily 10:30 |
 | Low Stock Alert | One email per item | Items Below Reorder Level | — | Store Managers list | Daily 08:00 |
-| Daily Sales Report | One email + CSV | Daily Sales Summary | — | Sales Management list | Daily 19:00 |
-| Weekly Receivables Report | One email + CSV | Open Receivables Summary | — | Finance Team list | Mondays 09:00 |
+| Daily Sales Report | One email with CSV + PDF attached (built by buildReport) | Daily Sales Summary | — | Sales Management list | Daily 19:00 |
+| Weekly Receivables Report | One email with CSV + PDF attached (built by buildReport) | Open Receivables Summary | — | Finance Team list | Mondays 09:00 |
 
 All times are Asia/Kolkata. The scheduler runs inside the server, so a job runs only while the
 server is running. To demo quickly, use **Run now** or set a job to every 1 minute.

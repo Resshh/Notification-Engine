@@ -198,8 +198,8 @@ describe("buildReport — formula injection protection (sub-task #194, #197 safe
 // ─── Validation & Edge cases ──────────────────────────────────────────────────
 
 describe("buildReport — validation and edge cases (sub-task #196)", () => {
-  test("throws for unsupported format 'pdf'", async () => {
-    await expect(buildReport(sampleResult, "pdf")).rejects.toThrow("unsupported format");
+  test("throws for unsupported format 'docx'", async () => {
+    await expect(buildReport(sampleResult, "docx")).rejects.toThrow("unsupported format");
   });
 
   test("throws when result is null", async () => {
@@ -238,5 +238,51 @@ describe("buildReport — validation and edge cases (sub-task #196)", () => {
     await wb.xlsx.readFile(p);
     expect(wb.worksheets.length).toBe(1);
     fs.unlinkSync(p);
+  });
+});
+
+// ─── PDF ──────────────────────────────────────────────────────────────────────
+
+describe("buildReport — PDF format", () => {
+  const readPdf = async (result) => {
+    const filePath = await buildReport(result, "pdf");
+    const text = fs.readFileSync(filePath, "latin1");
+    fs.unlinkSync(filePath);
+    return { filePath, text };
+  };
+
+  // Every xref entry must point at the start of its "N 0 obj", or PDF readers reject the file.
+  const assertValidXref = (text) => {
+    const xrefAt = Number(text.match(/startxref\n(\d+)/)[1]);
+    expect(text.slice(xrefAt, xrefAt + 4)).toBe("xref");
+    const offsets = [...text.slice(xrefAt).matchAll(/^(\d{10}) 00000 n $/gm)].map((m) => Number(m[1]));
+    offsets.forEach((offset, i) => expect(text.slice(offset).startsWith(`${i + 1} 0 obj`)).toBe(true));
+  };
+
+  test("creates a valid .pdf containing the headers and rows", async () => {
+    const { filePath, text } = await readPdf(sampleResult);
+    expect(filePath.endsWith(".pdf")).toBe(true);
+    expect(text.startsWith("%PDF-1.4")).toBe(true);
+    expect(text.trimEnd().endsWith("%%EOF")).toBe(true);
+    expect(text).toContain("InvoiceNo");
+    expect(text).toContain("Gamma GmbH");
+    assertValidXref(text);
+  });
+
+  test("long reports split across pages, each with the header", async () => {
+    const rows = Array.from({ length: 100 }, (_, i) => [`INV-${i}`, String.raw`Customer (A\B)`, i, 0]);
+    const { text } = await readPdf({ ...sampleResult, rows });
+    const pages = Number(text.match(/\/Count (\d+)/)[1]);
+    expect(pages).toBeGreaterThan(1);
+    expect(text).toContain(`Page ${pages} of ${pages}`);
+    expect(text.match(/InvoiceNo/g).length).toBe(pages);
+    expect(text).toContain(String.raw`Customer \(A\\B\)`); // ( ) \ are escaped
+    assertValidXref(text);
+  });
+
+  test("empty result still produces a readable PDF", async () => {
+    const { text } = await readPdf({ columns: ["A"], rows: [], meta: {} });
+    expect(text).toContain(String.raw`\(no rows\)`);
+    assertValidXref(text);
   });
 });

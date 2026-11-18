@@ -36,6 +36,8 @@ const Job = model('Job', new Schema({
   },
   templateId: { type: ObjectId, ref: 'Template' },
   attachmentPath: String, // report mode: file from Batch 2's buildReport (FR-19)
+  // report mode: one attachment per format, so the reader can open whichever they prefer
+  reportFormats: { type: [{ type: String, enum: ['csv', 'pdf'] }], default: ['csv', 'pdf'] },
   enabled: { type: Boolean, default: false },
 }, { timestamps: true }), 'jobs');
 

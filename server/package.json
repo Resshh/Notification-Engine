@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "mock:sl": "node mock-service-layer/server.js",
     "seed": "node seed/seed.js",
     "seed:auth": "node seed.js",
     "seed:batch1": "node seed.js",
@@ -19,6 +20,8 @@
     "test:integration": "node --test tests/connectionMongo.integration.test.js"
   },
   "jest": {
+    "globalSetup": "<rootDir>/tests/setup/startMockServiceLayer.js",
+    "globalTeardown": "<rootDir>/tests/setup/stopMockServiceLayer.js",
     "testPathIgnorePatterns": [
       "/node_modules/",
       "/test/",

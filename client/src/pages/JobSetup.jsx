@@ -6,6 +6,7 @@ import { api } from '../api.js'
 
 const OPERATORS = ['>', '>=', '<', '<=', '=', '!=']
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const REPORT_FORMATS = [['csv', 'CSV'], ['pdf', 'PDF']]
 const TIMEZONES = ['Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Europe/London', 'UTC']
 
 const emptyJob = {
@@ -16,6 +17,7 @@ const emptyJob = {
   schedule: { frequency: 'daily', everyMinutes: 15, time: '09:00', days: [1], dayOfMonth: 1, timezone: 'Asia/Kolkata' },
   recipients: { from: 'column', column: '', listId: '', cc: [], bcc: [] },
   templateId: '',
+  reportFormats: ['csv', 'pdf'],
 }
 
 // Same wording as the server's describe() in engine/scheduler.js
@@ -117,6 +119,7 @@ export default function JobSetup() {
     }
     if (recipientsFrom === 'column' && !job.recipients.column) problems.push('Choose the column that holds the email address.')
     if (recipientsFrom === 'list' && !job.recipients.listId) problems.push('Choose a recipient list.')
+    if (isReport && !job.reportFormats.length) problems.push('Tick at least one report file type (CSV or PDF).')
     const badEmail = [...toList(ccText), ...toList(bccText)].find((e) => !emailOk(e))
     if (badEmail) problems.push(`Invalid CC/BCC email address: ${badEmail}`)
     if (!job.templateId) problems.push('Choose a template.')
@@ -139,6 +142,7 @@ export default function JobSetup() {
       schedule: job.schedule,
       recipients: { ...job.recipients, from: recipientsFrom, cc: toList(ccText), bcc: toList(bccText) },
       templateId: job.templateId,
+      reportFormats: job.reportFormats,
     }
     setSaving(true)
     try {
@@ -193,6 +197,23 @@ export default function JobSetup() {
             <option value="report">Report — one email with the data attached</option>
           </select>
         </label>
+        {isReport && (
+          <div>
+            <span>Attach the report as (the reader opens whichever they prefer)</span>
+            <div className="radio-row" role="group" aria-label="Report files">
+              {REPORT_FORMATS.map(([value, label]) => (
+                <label key={value}>
+                  <input type="checkbox" checked={job.reportFormats.includes(value)}
+                    onChange={(e) => set({
+                      reportFormats: e.target.checked
+                        ? [...job.reportFormats, value]
+                        : job.reportFormats.filter((f) => f !== value),
+                    })} /> {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         <label>Saved query
           <select value={job.queryId} onChange={(e) => set({ queryId: e.target.value })}>
             <option value="">Choose a query...</option>
@@ -263,7 +284,7 @@ export default function JobSetup() {
             {templates.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
           </select>
         </label>
-        {isReport && <p className="hint">Report templates can use {'{{Date}}'}, {'{{RowCount}}'} and {'{{JobName}}'}. The data is attached as CSV.</p>}
+        {isReport && <p className="hint">Report templates can use {'{{Date}}'}, {'{{RowCount}}'} and {'{{JobName}}'}. The matching rows are attached in each file type ticked above.</p>}
         <Link to="/templates" className="hint">Create or edit templates</Link>
       </fieldset>
 
@@ -335,7 +356,7 @@ export default function JobSetup() {
               <p><strong>To:</strong> {testResult.preview.to.join(', ') || '(no address)'}</p>
               {testResult.preview.cc?.length > 0 && <p><strong>CC:</strong> {testResult.preview.cc.join(', ')}</p>}
               <p><strong>Subject:</strong> {testResult.preview.subject}</p>
-              {testResult.preview.attachment && <p><strong>Attachment:</strong> {testResult.preview.attachment}</p>}
+              {testResult.preview.attachments?.length > 0 && <p><strong>Attachments:</strong> {testResult.preview.attachments.join(', ')}</p>}
               <pre>{testResult.preview.body}</pre>
               {testResult.preview.missing.map((m) => (
                 <p key={m} className="notice notice-error">Placeholder {`{{${m}}}`} has no value</p>

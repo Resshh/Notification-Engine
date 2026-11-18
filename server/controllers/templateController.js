@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { Template } = require("../models");
+const { Template, Job } = require("../models");
 const { render } = require("../engine/template");
 
 function createError(statusCode, message) {
@@ -88,6 +88,11 @@ async function deleteTemplate(req, res, next) {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
       throw createError(400, "Invalid template ID.");
+    }
+
+    const jobs = await Job.find({ templateId: req.params.id }, "name").lean();
+    if (jobs.length) {
+      throw createError(409, `Cannot delete this template: used by job(s) ${jobs.map((j) => j.name).join(", ")}. Change those jobs first.`);
     }
 
     const template = await Template.findByIdAndDelete(req.params.id);

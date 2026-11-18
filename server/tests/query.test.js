@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const app = require("../app");
 const Query = require("../models/Query");
+const { Job } = require("../models");
 
 const tokenFor = (role) => jwt.sign({ id: "672000000000000000000097", name: role, role }, process.env.JWT_SECRET);
 const adminAuth = `Bearer ${tokenFor("admin")}`;
@@ -244,6 +245,20 @@ describe("Story 5.1 - Query Management API (/api/queries)", () => {
   });
 
   describe("DELETE /api/queries/:id (Delete Query)", () => {
+    // By default no job uses the query.
+    beforeEach(() => jest.spyOn(Job, "find").mockReturnValue({ lean: async () => [] }));
+
+    test("refuses to delete a query that a job uses, and names the job", async () => {
+      Job.find.mockReturnValue({ lean: async () => [{ name: "Payment Reminder" }] });
+      const deleteSpy = jest.spyOn(Query, "findByIdAndDelete");
+
+      const response = await api.delete("/api/queries/query123");
+
+      expect(response.status).toBe(409);
+      expect(response.body.message).toContain("Payment Reminder");
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
     test("successfully deletes an existing query", async () => {
       jest.spyOn(Query, "findByIdAndDelete").mockResolvedValue({
         _id: "query123",

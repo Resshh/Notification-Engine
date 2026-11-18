@@ -7,17 +7,19 @@
  *   const { buildReport } = require("./reports/buildReport");
  *   const filePath = await buildReport(result, "csv");   // → "/path/to/report.csv"
  *   const filePath = await buildReport(result, "xlsx");  // → "/path/to/report.xlsx"
+ *   const filePath = await buildReport(result, "pdf");   // → "/path/to/report.pdf"
  *
  * Contract with Batch 1 (do NOT change without telling them):
  *   buildReport(result, format) → string (absolute file path)
  *   - result  : { columns: string[], rows: any[][], meta: { source, rowCount } }
- *   - format  : "csv" | "xlsx"
+ *   - format  : "csv" | "xlsx" | "pdf"
  */
 
 const path   = require("path");
 const fs     = require("fs");
 const { writeCsv }   = require("./csvBuilder");
 const { writeExcel } = require("./excelBuilder");
+const { writePdf }   = require("./pdfBuilder");
 
 // Reports are written to backend/reports/output/ — this folder is git-ignored
 const OUTPUT_DIR = path.resolve(__dirname, "output");
@@ -31,7 +33,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
  * Builds a CSV or Excel report file from a common-format result.
  *
  * @param {{ columns: string[], rows: any[][], meta?: object }} result
- * @param {"csv"|"xlsx"} format
+ * @param {"csv"|"xlsx"|"pdf"} format
  * @returns {Promise<string>} Absolute file path of the generated report
  */
 async function buildReport(result, format) {
@@ -50,8 +52,8 @@ async function buildReport(result, format) {
 
   const normalizedFormat = String(format || "").toLowerCase();
 
-  if (!["csv", "xlsx"].includes(normalizedFormat)) {
-    throw new Error(`buildReport: unsupported format '${format}'. Use "csv" or "xlsx".`);
+  if (!["csv", "xlsx", "pdf"].includes(normalizedFormat)) {
+    throw new Error(`buildReport: unsupported format '${format}'. Use "csv", "xlsx" or "pdf".`);
   }
 
   // ── Route to the correct builder ──────────────────────────────────────────
@@ -63,6 +65,10 @@ async function buildReport(result, format) {
   if (normalizedFormat === "xlsx") {
     const filePath = await writeExcel(result, OUTPUT_DIR);
     return filePath;
+  }
+
+  if (normalizedFormat === "pdf") {
+    return writePdf(result, OUTPUT_DIR);
   }
 }
 

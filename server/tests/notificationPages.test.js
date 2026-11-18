@@ -3,7 +3,7 @@ process.env.JWT_SECRET = "notification-pages-test-secret";
 const request = require("supertest");
 const jwt = require("jsonwebtoken");
 const app = require("../app");
-const { DeliveryLog, Job, JobRun, Template } = require("../models");
+const { DeliveryLog, Job, JobRun, RecipientList, Template } = require("../models");
 
 const adminToken = jwt.sign(
   { id: "672000000000000000000099", name: "Admin", role: "admin" },
@@ -109,6 +109,7 @@ describe("Template API", () => {
 
   test("deletes a template for an administrator", async () => {
     const templateId = "672000000000000000000004";
+    jest.spyOn(Job, "find").mockReturnValue({ lean: async () => [] });
     jest.spyOn(Template, "findByIdAndDelete").mockResolvedValue({ _id: templateId });
 
     const response = await request(app)
@@ -117,6 +118,25 @@ describe("Template API", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.message).toBe("Template deleted.");
+  });
+
+  // A job pointing at a deleted template, list or query fails on every run, so these deletes are refused.
+  test("refuses to delete a template or recipient list that a job uses", async () => {
+    const id = "672000000000000000000004";
+    jest.spyOn(Job, "find").mockReturnValue({ lean: async () => [{ name: "Daily Sales Report" }] });
+    const templateDelete = jest.spyOn(Template, "findByIdAndDelete");
+    const listDelete = jest.spyOn(RecipientList, "findByIdAndDelete");
+
+    const template = await request(app).delete(`/api/templates/${id}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(template.status).toBe(409);
+    expect(template.body.message || template.body.error).toContain("Daily Sales Report");
+
+    const list = await request(app).delete(`/api/recipient-lists/${id}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(list.status).toBe(409);
+    expect(list.body.error).toContain("Daily Sales Report");
+
+    expect(templateDelete).not.toHaveBeenCalled();
+    expect(listDelete).not.toHaveBeenCalled();
   });
 
   test("rejects template changes from non-admin users", async () => {

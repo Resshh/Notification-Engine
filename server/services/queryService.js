@@ -249,6 +249,18 @@ async function updateQuery(queryId, updateData) {
  * @returns {Promise<object>} Deletion confirmation.
  */
 async function deleteQuery(queryId) {
+  // A job that points at a deleted query fails on every run, so refuse while jobs use it
+  // (same rule as connections in use by queries).
+  const { Job } = require("../models");
+  const jobs = await Job.find({ queryId }, "name").lean();
+  if (jobs.length) {
+    const error = new Error(
+      `Cannot delete this query: used by job(s) ${jobs.map((j) => j.name).join(", ")}. Change those jobs first.`
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
   const query = await Query.findByIdAndDelete(queryId);
 
   if (!query) {
