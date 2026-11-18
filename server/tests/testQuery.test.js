@@ -17,7 +17,8 @@ describe("Story 5.2 - Test Queries and Preview Results", () => {
     process.env.ENCRYPTION_KEY =
       "597001adc930d4a1750761523a49cd1ebbb2cce786e481718e7c242e1abb87a3";
 
-    const encryptedPass = encryptPassword("SecretPass123!");
+    // Same password the mock Service Layer accepts (and the seeded mock connections use).
+    const encryptedPass = encryptPassword("Password123!");
 
     mockHanaConnection = {
       _id: "672000000000000000000001",

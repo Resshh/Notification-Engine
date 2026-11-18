@@ -21,7 +21,8 @@ emails or reports on a schedule, without sending duplicates, and logs every run 
 ## Setup
 
 Requires Node.js 20+ and a MongoDB database (local or Atlas). No real SQL Server, SAP HANA or
-SAP Service Layer is needed: the connectors fall back to the mock data in `mock-data/`.
+SAP Service Layer is needed: SQL Server and HANA fall back to the mock data in `mock-data/`, and a
+mock Service Layer server starts with the API (see [Mock SAP Service Layer](#mock-sap-service-layer)).
 
 ### 1. Install
 
@@ -43,6 +44,7 @@ Copy `server/.env.example` to `server/.env` and fill it in. Never commit `.env`.
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Email account. Leave `SMTP_USER` empty to build emails without sending them |
 | `TEST_MODE`, `TEST_EMAIL` | See [Test mode](#test-mode) |
 | `QUERY_TIMEOUT_MS`, `MAX_ROW_LIMIT_CAP` | Query time limit and row cap (defaults 30000 and 1000) |
+| `START_MOCK_SERVICE_LAYER` | `false` stops the API from starting the mock Service Layer (use when testing against the real SAP test system) |
 
 ### 3. Load the demo data (run in this order)
 
@@ -67,6 +69,29 @@ cd client && npm run dev    # App on http://localhost:5173
 |---|---|---|
 | `admin@test.com` | `SEED_PASSWORD` (default `Test@123`) | Admin: can change everything |
 | `user@test.com` | same | User: read-only |
+
+### Mock SAP Service Layer
+
+`server/mock-service-layer/server.js` is a small Express app that behaves like SAP Business One
+Service Layer. `npm run dev` starts it on port 50000; to run it alone: `cd server && npm run mock:sl`.
+
+| Request | What it does |
+|---|---|
+| `POST /b1s/v1/Login` `{ CompanyDB, UserName, Password }` | Returns a session (`B1SESSION` cookie). Wrong details give 401 |
+| `GET /b1s/v1/Invoices`, `/PurchaseOrders`, `/Items` | Data from `mock-data/demo/`. Supports `$filter` (`eq ne gt ge lt le`, joined with `and`), `$select`, `$top`, `$skip` |
+| Paging | 20 records per page; `odata.nextLink` points to the next page |
+| Session timeout | 30 minutes of no use (`MOCK_SL_SESSION_TIMEOUT_MS`); then 401 |
+| Anything else | Refused: the mock is read only |
+
+Mock login (matches the seeded "Mock Service Layer" connection): company `SBODemoIN`, user `manager`,
+password `Password123!` (override with `MOCK_SL_COMPANY`, `MOCK_SL_USER`, `MOCK_SL_PASSWORD`).
+
+The client (`server/connectors/serviceLayerClient.js`) logs in, follows `odata.nextLink` until the
+row limit, and when the session expires logs in again and retries once. **Switching to the real SAP
+test system needs only the connection settings**: host, port, company database, username and
+password, plus `START_MOCK_SERVICE_LAYER=false`. Every host except `localhost` uses HTTPS with
+certificate checks on; for a self-signed test certificate set `NODE_EXTRA_CA_CERTS` to the
+certificate file from your mentor (never switch the checks off).
 
 ## Test mode
 
