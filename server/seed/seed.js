@@ -68,9 +68,10 @@ const MOCK_CONNECTIONS = [
  * @returns {Promise<{ connections: number, queries: number }>}
  */
 async function seedDatabase() {
-  const encKey = process.env.ENCRYPTION_KEY || "597001adc930d4a1750761523a49cd1ebbb2cce786e481718e7c242e1abb87a3";
+  // No built-in fallback key: passwords encrypted with a different key than the server's
+  // cannot be decrypted later ("Unable to decrypt password"). Every teammate must use the same key.
   if (!process.env.ENCRYPTION_KEY) {
-    process.env.ENCRYPTION_KEY = encKey;
+    throw new Error("ENCRYPTION_KEY is not set in server/.env. Use the team's shared key, then run the seed again.");
   }
 
   // ── Step 1: Upsert Mock Connections ─────────────────────────────────────────
