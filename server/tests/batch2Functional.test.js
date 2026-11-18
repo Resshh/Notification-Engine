@@ -23,6 +23,17 @@ const Query = require("../models/Query");
 const Connection = require("../models/Connection");
 const { encryptPassword } = require("../security/crypto");
 
+// The mock Service Layer that Jest starts on port 50000 (tests/setup/startMockServiceLayer.js).
+// The client really logs in, so every Service Layer call needs these details.
+const MOCK_SERVICE_LAYER = {
+  type: "ServiceLayer",
+  host: "localhost",
+  port: 50000,
+  database: "SBODemoIN",
+  username: "manager",
+  password: "Password123!"
+};
+
 describe("Batch 2: Functional Testing (Data Connectors)", () => {
   const encKey = "597001adc930d4a1750761523a49cd1ebbb2cce786e481718e7c242e1abb87a3";
   let mockConnections = {};
@@ -268,7 +279,7 @@ describe("Batch 2: Functional Testing (Data Connectors)", () => {
       };
 
       const result = await serviceLayer.executeQuery(
-        { type: "ServiceLayer" },
+        MOCK_SERVICE_LAYER,
         queryDoc,
         {},
         { limit: 5 }
@@ -286,7 +297,7 @@ describe("Batch 2: Functional Testing (Data Connectors)", () => {
       };
 
       const result = await serviceLayer.executeQuery(
-        { type: "ServiceLayer" },
+        MOCK_SERVICE_LAYER,
         queryDoc,
         {},
         { limit: 10 }
@@ -333,7 +344,7 @@ describe("Batch 2: Functional Testing (Data Connectors)", () => {
       };
 
       const outcome = await resilientClient.executeWithSessionRetry(() =>
-        serviceLayer.executeQuery({ type: "ServiceLayer" }, queryDoc, {}, { limit: 5 })
+        serviceLayer.executeQuery(MOCK_SERVICE_LAYER, queryDoc, {}, { limit: 5 })
       );
 
       expect(attempts).toBe(2);
