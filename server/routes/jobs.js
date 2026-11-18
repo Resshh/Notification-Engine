@@ -11,7 +11,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function readInput(body = {}) {
   const input = {};
-  for (const f of ['name', 'queryId', 'mode', 'rule', 'schedule', 'recipients', 'templateId']) {
+  for (const f of ['name', 'queryId', 'mode', 'rule', 'schedule', 'recipients', 'templateId', 'reportFormats']) {
     if (Object.hasOwn(body, f)) input[f] = body[f] === '' ? null : body[f];
   }
   if (typeof input.name === 'string') input.name = input.name.trim();
@@ -36,6 +36,7 @@ function missingForEnable(job) {
   try { toCron(job.schedule); } catch (err) { return `Schedule: ${err.message}`; }
   const r = job.recipients || {};
   if (job.mode === 'report' && !r.listId) return 'Report jobs need a recipient list';
+  if (job.mode === 'report' && !job.reportFormats?.length) return 'Choose at least one report file type';
   if (r.from === 'list' ? !r.listId : !r.column) return 'Choose the recipients';
   if (!job.templateId) return 'Choose a template';
   return null;

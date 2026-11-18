@@ -38,7 +38,7 @@ Copy `server/.env.example` to `server/.env` and fill it in. Never commit `.env`.
 |---|---|
 | `MONGO_URI` | MongoDB connection string |
 | `JWT_SECRET` | Any long random text, used to sign logins |
-| `ENCRYPTION_KEY` | 64 hex characters, encrypts saved connection passwords. Generate one: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `ENCRYPTION_KEY` | 64 hex characters, encrypts saved connection passwords. **The whole team must use the same key** (the database is shared), or saved connections fail with "Unable to decrypt password". `npm run seed` refuses to run without it. Generate one: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `SEED_PASSWORD` | Password for the demo logins (default `Test@123`) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Email account. Leave `SMTP_USER` empty to build emails without sending them |
 | `TEST_MODE`, `TEST_EMAIL` | See [Test mode](#test-mode) |
@@ -88,8 +88,8 @@ While developing and in the demo, test mode stays **on** (ICTAK rule: never send
 | Payment Reminder | One email per invoice | Overdue Invoices | `DaysOverdue > 7` | `Email` column | Daily 10:00 |
 | PO Follow-up | One email per PO | Purchase Orders Past Promised Date | `Status != Closed` | `Email` column, CC Purchase | Daily 10:30 |
 | Low Stock Alert | One email per item | Items Below Reorder Level | — | Store Managers list | Daily 08:00 |
-| Daily Sales Report | One email + CSV | Daily Sales Summary | — | Sales Management list | Daily 19:00 |
-| Weekly Receivables Report | One email + CSV | Open Receivables Summary | — | Finance Team list | Mondays 09:00 |
+| Daily Sales Report | One email with CSV + PDF attached (built by buildReport) | Daily Sales Summary | — | Sales Management list | Daily 19:00 |
+| Weekly Receivables Report | One email with CSV + PDF attached (built by buildReport) | Open Receivables Summary | — | Finance Team list | Mondays 09:00 |
 
 All times are Asia/Kolkata. The scheduler runs inside the server, so a job runs only while the
 server is running. To demo quickly, use **Run now** or set a job to every 1 minute.

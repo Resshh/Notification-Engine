@@ -21,8 +21,10 @@ require('../core/runQuery').runQuery = async () => {
 
 let mailServerDown = false;
 let mailAttempts = 0;
-require('../engine/mailer').sendMail = async () => {
+let lastMail;
+require('../engine/mailer').sendMail = async (mail) => {
   mailAttempts++;
+  lastMail = mail;
   if (mailServerDown) throw new Error('connect ECONNREFUSED 127.0.0.1:587');
 };
 
@@ -35,7 +37,7 @@ const template = { subject: 'Invoice {{InvoiceNo}}', body: 'Dear {{CustomerName}
 
 models.Job.findById = async () => job;
 models.Template.findById = async () => template;
-models.RecipientList.findById = async () => null;
+models.RecipientList.findById = async () => ({ emails: ['finance@test.com'], cc: [], bcc: [] });
 models.JobRun.create = async (doc) => ({
   ...doc, _id: 'run' + savedRuns.length, rowsFetched: 0, rowsMatched: 0, emailsSent: 0, skippedDuplicates: 0, failed: 0,
   status: 'running', save() { savedRuns.push(this); return this; },
@@ -114,6 +116,46 @@ test('email server is down: each email is retried, then the failure is logged', 
   mailServerDown = false;
   const next = await run();
   assert.strictEqual(next.emailsSent, 2);
+});
+
+test('report job with only PDF ticked: one email to the list with just the PDF', async () => {
+  const fs = require('node:fs');
+  Object.assign(job, { name: 'Daily Sales Report', mode: 'report', reportFormats: ['pdf'], recipients: { from: 'list', listId: 'l1', cc: [], bcc: [] } });
+  const r = await run();
+  assert.strictEqual(r.emailsSent, 1);
+  assert.deepStrictEqual(lastMail.to, ['finance@test.com']);
+  assert.strictEqual(lastMail.attachments.length, 1);
+  const [file] = lastMail.attachments;
+  assert.match(file.filename, /^daily-sales-report-\d{4}-\d{2}-\d{2}\.pdf$/);
+  fs.unlinkSync(file.path);
+});
+
+test('report job: by default ONE email with both a CSV and a PDF, so the reader can choose', async () => {
+  const fs = require('node:fs');
+  Object.assign(job, { name: 'Daily Sales Report', mode: 'report', recipients: { from: 'list', listId: 'l1', cc: [], bcc: [] } });
+
+  const r = await run();
+  assert.strictEqual(r.emailsSent, 1);
+  const [csvFile, pdfFile] = lastMail.attachments;
+  assert.strictEqual(lastMail.attachments.length, 2);
+  assert.match(csvFile.filename, /\.csv$/);
+  assert.match(pdfFile.filename, /\.pdf$/);
+
+  const csv = fs.readFileSync(csvFile.path, 'utf8');
+  assert.match(csv, /INV-101/);
+  assert.doesNotMatch(csv, /INV-102/); // fails the rule
+  const pdf = fs.readFileSync(pdfFile.path, 'latin1');
+  assert.ok(pdf.startsWith('%PDF-') && pdf.trimEnd().endsWith('%%EOF'));
+  assert.match(pdf, /INV-103/);
+  assert.doesNotMatch(pdf, /INV-102/);
+  for (const f of lastMail.attachments) fs.unlinkSync(f.path);
+});
+
+test('test run lists every report file it would attach, and writes none', async () => {
+  Object.assign(job, { mode: 'report', recipients: { from: 'list', listId: 'l1', cc: [], bcc: [] } });
+  const preview = await runJob('job1', { testRun: true });
+  assert.deepStrictEqual(preview.preview.attachments.map((n) => n.split('.').pop()), ['csv', 'pdf']);
+  assert.strictEqual(mailAttempts, 0);
 });
 
 test('data source fails: the run is still saved as failed with a safe error', async () => {

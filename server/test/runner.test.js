@@ -1,7 +1,7 @@
 // Pure parts of the runner. The full run (DB + SMTP) is checked with Run now, see README.
 const test = require('node:test');
 const assert = require('node:assert');
-const { sendWithRetry, dedupeKey, toCsv, splitEmails } = require('../engine/runner');
+const { sendWithRetry, dedupeKey, splitEmails } = require('../engine/runner');
 const { applyTestMode } = require('../engine/mailer');
 
 test('dedupe key is jobName:recordId:date', () => {
@@ -34,10 +34,6 @@ test('test mode is on unless explicitly false', () => {
   process.env.TEST_MODE = 'false';
   assert.deepStrictEqual(applyTestMode({ to: ['abc@test.com'] }).to, ['abc@test.com']);
   process.env.TEST_MODE = 'true';
-});
-
-test('CSV report quotes commas and quotes', () => {
-  assert.strictEqual(toCsv(['A', 'B'], [{ A: 'x,y', B: 'say "hi"' }]), 'A,B\r\n"x,y","say ""hi"""\r\n');
 });
 
 test('email column may hold several addresses; empty means none', () => {

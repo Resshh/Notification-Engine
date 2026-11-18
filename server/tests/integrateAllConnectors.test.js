@@ -369,7 +369,7 @@ describe("Story 7.1 — Integrate All Data Connectors", () => {
 
     test("buildReport rejects unsupported formats", async () => {
       const dummyResult = { columns: ["A"], rows: [["1"]], meta: {} };
-      await expect(buildReport(dummyResult, "pdf")).rejects.toThrow("unsupported format");
+      await expect(buildReport(dummyResult, "docx")).rejects.toThrow("unsupported format");
     });
   });
 });

@@ -7,6 +7,8 @@ const { runQuery } = require('../core/runQuery');
 const { toObjects, matches } = require('./rules');
 const { render } = require('./template');
 const { sendMail } = require('./mailer');
+// Batch 2's report file maker (FR-19): buildReport(result, 'csv' | 'pdf') -> file path. Report jobs use CSV and PDF only.
+const { buildReport } = require('../reports/buildReport');
 
 const MAX_RETRIES = 3;
 const TEST_RUN_ROWS = 5;
@@ -25,11 +27,6 @@ const toHtml = (text) => escapeHtml(text).replace(/\r?\n/g, '<br>');
 
 // Short, safe error text for logs: no stack, no credentials (BR-10).
 const safeError = (err) => String(err?.message || err).replace(/\s+/g, ' ').slice(0, 200);
-
-function toCsv(columns, objects) {
-  const cell = (v) => (/[",\r\n]/.test(String(v ?? '')) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? ''));
-  return [columns.map(cell).join(','), ...objects.map((o) => columns.map((c) => cell(o[c])).join(','))].join('\r\n') + '\r\n';
-}
 
 // Try once, then up to `retries` more times. Never throws (BR-09).
 async function sendWithRetry(send, { retries = MAX_RETRIES, delayMs = 1000 } = {}) {
@@ -51,7 +48,8 @@ function splitEmails(value) {
 }
 
 // Everything a run needs, minus the sending. Used by both real runs and test runs.
-async function prepare(job, { limit } = {}) {
+// buildFile: real runs write the report file; test runs only show its name (they write nothing).
+async function prepare(job, { limit, buildFile = false } = {}) {
   const template = job.templateId && await Template.findById(job.templateId);
   if (!template) throw new Error('Template not found');
   const list = job.recipients?.from === 'list' || job.mode === 'report'
@@ -75,13 +73,26 @@ async function prepare(job, { limit } = {}) {
 
   let emails;
   if (job.mode === 'report') {
-    // One email to the list with the data attached (FR-19). Uses Batch 2's file if the job has one.
+    // One email to the list with the matched rows attached once per chosen format (default CSV + PDF),
+    // each file built by Batch 2's buildReport (FR-19). A job with a fixed attachmentPath sends that file instead.
     const row = { JobName: job.name, Date: date, RowCount: matched.length };
-    const attachment = job.attachmentPath
-      ? { filename: path.basename(job.attachmentPath), path: path.resolve(__dirname, '../..', job.attachmentPath) }
-      : { filename: `${slug(job.name)}-${date}.csv`, content: toCsv(data.columns, matched) };
+    let attachments;
+    if (job.attachmentPath) {
+      attachments = [{ filename: path.basename(job.attachmentPath), path: path.resolve(__dirname, '../..', job.attachmentPath) }];
+    } else {
+      const formats = job.reportFormats?.length ? job.reportFormats : ['csv', 'pdf'];
+      const rowsAsArrays = matched.map((o) => data.columns.map((c) => o[c]));
+      attachments = [];
+      for (const format of formats) {
+        const file = { filename: `${slug(job.name)}-${date}.${format}` };
+        if (buildFile && matched.length) {
+          file.path = await buildReport({ columns: data.columns, rows: rowsAsArrays, meta: data.meta }, format);
+        }
+        attachments.push(file);
+      }
+    }
     emails = matched.length
-      ? [{ to: list.emails, cc, bcc, recordId: 'report', ...fill(row), attachments: [attachment] }]
+      ? [{ to: list.emails, cc, bcc, recordId: 'report', ...fill(row), attachments }]
       : [];
   } else {
     const idColumn = data.columns[0]; // first column is the record's ID: InvoiceNo, PONo, ItemCode
@@ -107,7 +118,7 @@ async function testRun(job) {
     noEmailAddress: emails.filter((e) => !e.to.length).length,
     preview: first && {
       to: first.to, cc: first.cc, bcc: first.bcc, subject: first.subject, body: first.body,
-      missing: first.missing, attachment: first.attachments?.[0]?.filename,
+      missing: first.missing, attachments: first.attachments?.map((a) => a.filename),
     },
   };
 }
@@ -152,7 +163,7 @@ async function runJob(jobId, { manual = false, testRun: isTestRun = false, retry
 
   const run = await JobRun.create({ jobId: job._id, manual });
   try {
-    const { rowsFetched, rowsMatched, emails, date } = await prepare(job);
+    const { rowsFetched, rowsMatched, emails, date } = await prepare(job, { buildFile: true });
     Object.assign(run, { rowsFetched, rowsMatched });
     // One at a time: one bad email never stops the rest.
     for (const email of emails) await deliver(job, run, email, date, retryOptions);
@@ -166,4 +177,4 @@ async function runJob(jobId, { manual = false, testRun: isTestRun = false, retry
   return run;
 }
 
-module.exports = { runJob, sendWithRetry, dedupeKey, slug, toCsv, splitEmails };
+module.exports = { runJob, sendWithRetry, dedupeKey, slug, splitEmails };
