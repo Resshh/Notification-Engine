@@ -13,3 +13,8 @@ reports/output/
 
 # Local editor/tool settings
 .serena/
+
+# PDF test reports and generation scripts
+*.pdf
+generate_test_report_pdf.py
+

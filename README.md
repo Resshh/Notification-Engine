@@ -1,4 +1,4 @@
-﻿# Notification Engine
+# Notification Engine
 
 ICTAK internship project, FY 2026–27: Batch 1 (Notification Engine) + Batch 2 (Data Connectors).
 Stack: React + Vite, Node.js + Express, MongoDB, node-cron, nodemailer, ExcelJS.
@@ -142,8 +142,9 @@ cd ../client
 npm run lint   # code checks for the React app
 ```
 
-They use mocks, so no database or email account is needed. All 8 test cases from the Batch 1 guide
-are automated:
+They use mocks, so no database or email account is needed. All test cases from both guides are automated:
+
+### Batch 1 Guide Test Cases
 
 | Guide test case | Test file |
 |---|---|
@@ -155,6 +156,23 @@ are automated:
 | Normal user opens an admin page: blocked | `test/auth.test.js`, `tests/query.test.js` |
 | Missing placeholder value: empty value, no crash | `test/template.test.js` |
 | Disabled job: scheduler does not run it | `test/scheduler.test.js` |
+
+### Batch 2 Guide Test Cases
+
+| Guide test case | Test file |
+|---|---|
+| Test connection with correct details: success message | `tests/testConnection.test.js`, `tests/connectionTest.test.js` |
+| Test connection with wrong password: clear error, no crash | `tests/batch2Functional.test.js` |
+| Run a saved SQL Server query: rows in common format | `tests/sampleQueries.test.js`, `tests/connectorsEndToEnd.test.js` |
+| Run a saved HANA query: rows in common format | `tests/hana.test.js`, `tests/sampleQueries.test.js` |
+| Run a Service Layer query with $filter: filtered rows in common format | `tests/batch2Functional.test.js`, `tests/integrateAllConnectors.test.js` |
+| Service Layer returns many records: paging collects pages up to limit | `tests/batch2Functional.test.js`, `tests/limits.test.js` |
+| Session expires on Service Layer: client logs in again and continues | `tests/batch2Functional.test.js` |
+| Query contains DELETE or DROP: blocked with clear message | `tests/validator.test.js`, `tests/sqlServer.test.js` |
+| Query takes too long: stops at timeout, error returned | `tests/limits.test.js` |
+| Result has more rows than the limit: only limit is returned | `tests/limits.test.js`, `tests/batch2Functional.test.js` |
+| Build a report from a result: CSV and Excel files open correctly | `tests/buildReport.test.js`, `tests/batch2Functional.test.js` |
+| Normal user opens Connection settings: access blocked | `tests/adminOnly.test.js`, `tests/connectionController.test.js` |
 
 ## Folders
 
