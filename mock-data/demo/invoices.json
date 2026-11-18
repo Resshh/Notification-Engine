@@ -2,7 +2,7 @@
   { "InvoiceNo": "INV-1001", "CustomerCode": "C001", "CustomerName": "Alpha Traders", "Email": "accounts@alphatraders.com", "DueDate": "2026-10-10", "Amount": 85000, "Paid": false },
   { "InvoiceNo": "INV-1002", "CustomerCode": "C002", "CustomerName": "Beta Supplies", "Email": "finance@betasupplies.com", "DueDate": "2026-10-05", "Amount": 42500, "Paid": false },
   { "InvoiceNo": "INV-1003", "CustomerCode": "C003", "CustomerName": "Gamma Exports", "Email": "billing@gammaexports.com", "DueDate": "2026-09-28", "Amount": 1200000, "Paid": false },
-  { "InvoiceNo": "INV-1004", "CustomerCode": "C004", "CustomerName": "Delta Solutions", "Email": "ap@deltasolutions.com", "DueDate": "2026-10-15", "Amount": 67000, "Paid": false },
+  { "InvoiceNo": "INV-1004", "CustomerCode": "C004", "CustomerName": "Delta Solutions", "Email": "sivanandhinias@gmail.com", "DueDate": "2026-10-15", "Amount": 67000, "Paid": false },
   { "InvoiceNo": "INV-1005", "CustomerCode": "C005", "CustomerName": "Epsilon Corp", "Email": "accounts@epsiloncorp.com", "DueDate": "2026-09-20", "Amount": 310000, "Paid": false },
   { "InvoiceNo": "INV-1006", "CustomerCode": "C006", "CustomerName": "Zeta Industries", "Email": "finance@zetaindustries.com", "DueDate": "2026-10-20", "Amount": 55000, "Paid": false },
   { "InvoiceNo": "INV-1007", "CustomerCode": "C007", "CustomerName": "Eta Merchants", "Email": "billing@etamerchants.com", "DueDate": "2026-10-25", "Amount": 92000, "Paid": false },
