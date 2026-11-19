@@ -2,7 +2,7 @@ const request = require('http')
 const express = require('express')
 const jwt = require('jsonwebtoken')
 
-const { RecipientList } = require('../models')
+const { RecipientList, Job } = require('../models')
 const recipientListRouter = require('../routes/recipientList')
 
 // Test JWT secret
@@ -438,8 +438,14 @@ describe('PUT /api/recipient-lists/:id', () => {
 // DELETE TESTS
 // --------------------------------------------------
 
+// DELETE first looks up the jobs that use the list (Job.find(...).lean()); no jobs means it may be deleted.
+function mockJobsUsingList(jobs) {
+  jest.spyOn(Job, 'find').mockReturnValue({ lean: () => Promise.resolve(jobs) })
+}
+
 describe('DELETE /api/recipient-lists/:id', () => {
   test('should delete a recipient list successfully', async () => {
+    mockJobsUsingList([])
     jest.spyOn(RecipientList, 'findByIdAndDelete')
       .mockResolvedValue({ _id: validId, name: 'Marketing Team' })
 
@@ -485,7 +491,24 @@ describe('DELETE /api/recipient-lists/:id', () => {
     expect(response.status).toBe(400)
   })
 
+  test('should return 409 and name the jobs when the list is used by a job', async () => {
+    mockJobsUsingList([{ name: 'Weekly Receivables Report' }])
+    const del = jest.spyOn(RecipientList, 'findByIdAndDelete')
+
+    const response = await makeRequest(
+      'DELETE',
+      `/${validId}`,
+      undefined,
+      createToken('admin')
+    )
+
+    expect(response.status).toBe(409)
+    expect(response.body.error).toContain('Weekly Receivables Report')
+    expect(del).not.toHaveBeenCalled()
+  })
+
   test('should return 404 when recipient list does not exist', async () => {
+    mockJobsUsingList([])
     jest.spyOn(RecipientList, 'findByIdAndDelete')
       .mockResolvedValue(null)
 
